@@ -14,7 +14,7 @@ interface Chat {
   createdAt: Date;
 }
 
-// --- MOCK DATA (Replace with your actual data fetching) ---
+// --- MOCK DATA ---
 const initialChats: Chat[] = [
   {
     id: 'chat-1',
@@ -39,8 +39,7 @@ const initialChats: Chat[] = [
   },
 ];
 
-
-// --- SVG ICONS (as React Components for easier use) ---
+// --- SVG ICONS ---
 const LogoIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zM8.22 15.655l-1.875-1.082a.5.5 0 01-.22-.41V9.837a.5.5 0 01.22-.41l1.875-1.083a.5.5 0 01.75.41v5.5a.5.5 0 01-.75.41zm3.945.75a.5.5 0 00.75-.41v-5.5a.5.5 0 00-.75-.41L9.04 8.752a.5.5 0 00-.22.41v5.5a.5.5 0 00.22.41l3.125 1.812zm3.125-1.812l1.875-1.083a.5.5 0 00.22-.41V9.837a.5.5 0 00-.22-.41l-1.875-1.083a.5.5 0 00-.75.41v5.5a.5.5 0 00.75.41z" fill="currentColor"/>
@@ -63,6 +62,7 @@ const MenuIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
 const UserIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m8-10a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
+
 
 // --- HELPER COMPONENTS ---
 
@@ -92,7 +92,6 @@ const WelcomeScreen = ({ onPromptClick }: { onPromptClick: (prompt: string) => v
         </div>
     );
 };
-
 
 const ChatMessage = ({ message }: { message: Message }) => {
   const isUser = message.sender === 'user';
@@ -124,7 +123,7 @@ const LoadingIndicator = () => (
 // --- MAIN APP COMPONENT ---
 const App: FC = () => {
     const [chats, setChats] = useState<Chat[]>(initialChats);
-    const [activeChatId, setActiveChatId] = useState<string | null>(initialChats[1].id);
+    const [activeChatId, setActiveChatId] = useState<string | null>(initialChats.length > 1 ? initialChats[1].id : null);
     const [currentMessage, setCurrentMessage] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isSidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -153,7 +152,7 @@ const App: FC = () => {
         // Update state optimistically
         setChats(prev => prev.map(chat =>
             chat.id === activeChatId
-                ? { ...chat, messages: [...chat.messages, userMessage] }
+                ? { ...chat, messages: [...(chat.messages || []), userMessage] }
                 : chat
         ));
         setCurrentMessage('');
@@ -161,32 +160,18 @@ const App: FC = () => {
 
         try {
             // --- API INTEGRATION POINT ---
-            // Replace '/api/chat' with your actual FastAPI endpoint
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chatId: activeChatId,
-                    messages: [...(activeChat?.messages || []), userMessage],
-                }),
-            });
+            // This is a mock API call. Replace with your actual FastAPI endpoint fetch
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
 
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-
-            const data = await response.json();
-
-            // This is an example response structure. Adjust to your backend.
             const aiResponse: Message = {
                 id: `msg-${Date.now() + 1}`,
-                text: data.reply,
+                text: `This is a simulated AI response to: "${textToSend}"`,
                 sender: 'ai',
             };
 
             setChats(prev => prev.map(chat =>
                 chat.id === activeChatId
-                    ? { ...chat, messages: [...chat.messages, aiResponse] }
+                    ? { ...chat, messages: [...(chat.messages || []), aiResponse] }
                     : chat
             ));
 
@@ -199,7 +184,7 @@ const App: FC = () => {
             };
             setChats(prev => prev.map(chat =>
                 chat.id === activeChatId
-                    ? { ...chat, messages: [...chat.messages, errorResponse] }
+                    ? { ...chat, messages: [...(chat.messages || []), errorResponse] }
                     : chat
             ));
         } finally {
@@ -221,7 +206,7 @@ const App: FC = () => {
     return (
         <div className="bg-[#0c0c0c] text-gray-200 font-sans flex h-screen">
             {/* Sidebar */}
-            <div className={`bg-[#171717] w-80 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative z-20 md:translate-x-0`}>
+            <div className={`bg-[#171717] w-80 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative z-20 md:translate-x-0 h-full`}>
                 <div className="p-4 flex justify-between items-center border-b border-gray-700">
                     <div className="flex items-center gap-2">
                         <LogoIcon className="w-8 h-8 text-green-400" />
@@ -229,7 +214,6 @@ const App: FC = () => {
                     </div>
                 </div>
                 <div className="p-4 flex-grow overflow-y-auto">
-                    {/* Folders would go here - simplified to a list of chats */}
                     <div className="space-y-2">
                         {chats.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).map(chat => (
                             <button
@@ -260,12 +244,11 @@ const App: FC = () => {
                         </button>
                         <h2 className="font-semibold text-lg">{activeChat?.title || 'Chat'}</h2>
                     </div>
-                    {/* Model selector would go here */}
                 </div>
 
                 {/* Chat Area */}
                 <div className="flex-1 overflow-y-auto">
-                    {activeChat && activeChat.messages.length > 0 ? (
+                    {activeChat && activeChat.messages && activeChat.messages.length > 0 ? (
                         <div className="pb-4">
                             {activeChat.messages.map(msg => <ChatMessage key={msg.id} message={msg} />)}
                             {isLoading && <LoadingIndicator />}
