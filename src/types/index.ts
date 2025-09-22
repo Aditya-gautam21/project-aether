@@ -1,0 +1,13 @@
+// --- TYPE DEFINITIONS ---
+export interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+}
+
+export interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+}
