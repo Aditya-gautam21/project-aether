@@ -10,14 +10,15 @@ const MainLayout: React.FC = () => {
 
   const handleChatSelect = (chat: Chat) => {
     setSelectedChat(chat);
-    // Load messages for selected chat
-    setMessages([]);
+    setMessages(chat.messages);
   };
 
   const handleNewChat = () => {
     const newChat: Chat = {
       id: `chat_${Date.now()}`,
       name: 'New chat',
+      messages: [],
+      createdAt: new Date(),
       isActive: true,
     };
     setSelectedChat(newChat);

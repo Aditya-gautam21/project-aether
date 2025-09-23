@@ -12,21 +12,39 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ onChatSelect, onNewChat, selectedChat }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data - replace with actual data from your API
+  // Mock data for demonstration
   const folders: FolderType[] = [
     {
       id: 'work',
       name: 'Work chats',
       chats: [
-        { id: '1', name: 'Plan a 3-day trip', lastMessage: 'A 3-day trip to a new destination can be Myrnie...' },
-        { id: '2', name: 'Ideas for a customer loyalty program', lastMessage: 'Here are some ideas for a customer loyalty...' },
+        {
+          id: '1',
+          name: 'Plan a 3-day trip',
+          messages: [],
+          createdAt: new Date(),
+          lastMessage: 'A 3-day trip to a new destination can be Myrnie...'
+        },
+        {
+          id: '2',
+          name: 'Ideas for a customer loyalty program',
+          messages: [],
+          createdAt: new Date(),
+          lastMessage: 'Here are some ideas for a customer loyalty...'
+        },
       ]
     },
     {
       id: 'life',
       name: 'Life chats',
       chats: [
-        { id: '3', name: 'Help me pick', lastMessage: 'I need some advice for your moving deci...' }
+        {
+          id: '3',
+          name: 'Help me pick',
+          messages: [],
+          createdAt: new Date(),
+          lastMessage: 'I need some advice for your moving deci...'
+        }
       ]
     },
     {

@@ -11,13 +11,32 @@ interface ChatAreaProps {
 }
 
 const ChatArea: React.FC<ChatAreaProps> = ({ selectedChat, messages, setMessages }) => {
+  const handleSendMessage = (content: string) => {
+    const userMessage: Message = {
+      id: `msg_${Date.now()}`,
+      content,
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // Simulate AI response for UI demo
+    setTimeout(() => {
+      const aiMessage: Message = {
+        id: `msg_${Date.now() + 1}`,
+        content: 'Thanks for your message! This is a demo response. Your FastAPI backend will replace this when integrated.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    }, 1000);
+  };
+
   if (!selectedChat) {
     return (
       <div className="chat-area">
-        <WelcomeScreen onMessageSend={(message) => {
-          // Handle initial message
-          console.log('Initial message:', message);
-        }} />
+        <WelcomeScreen onMessageSend={handleSendMessage} />
       </div>
     );
   }
@@ -49,28 +68,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedChat, messages, setMessages
         ))}
       </div>
 
-      <MessageInput
-        onSendMessage={(content) => {
-          const newMessage: Message = {
-            id: `msg_${Date.now()}`,
-            content,
-            isUser: true,
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, newMessage]);
-
-          // Here you'll integrate with your FastAPI backend
-          // chatService.sendMessage(content).then(response => {
-          //   const botMessage: Message = {
-          //     id: `msg_${Date.now() + 1}`,
-          //     content: response.result,
-          //     isUser: false,
-          //     timestamp: new Date(),
-          //   };
-          //   setMessages(prev => [...prev, botMessage]);
-          // });
-        }}
-      />
+      <MessageInput onSendMessage={handleSendMessage} />
     </div>
   );
 };
