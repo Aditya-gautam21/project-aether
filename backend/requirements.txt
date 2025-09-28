@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+torch
+transformers
+langchain
+langchain-community
+google-api-python-client
+google-auth-oauthlib
+requests
+python-dotenv
