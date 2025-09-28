@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 llm = LlamaCpp(
-    model_path="models",
+    model_path=r"C:\Users\ASUS\models\Llama-3.2-3B-Instruct",
     n_gpu_layers=-1,
     n_batch=32,
     temperature=0.3,
