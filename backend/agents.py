@@ -1,11 +1,40 @@
+from llama_cpp import Llama
+from langchain.agents import initialize_agent, AgentType, Tool
+from langchain_community.llms import LlamaCpp
+from tools import book_appointment, get_events
 import os
-import datetime
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
+from dotenv import load_dotenv
 
-SCOPES = ['https://www.googleapis.com/auth/calendar']
+load_dotenv()
 
-def get_calender_service():
-    
+llm = LlamaCpp(
+    model_path="models",
+    n_gpu_layers=-1,
+    n_batch=32,
+    temperature=0.3,
+    max_tokens=256,
+    verbose=True
+)
+
+tools= [
+    Tool(
+        name='BookAppointment',
+        func=book_appointment,
+        description="Books an appointment. input: dict with summary"
+    ),
+    Tool(
+        name="GetEvents",
+        func=get_events,
+        description="Gets events for a date"
+    )
+]
+
+agent = initialize_agent(tools,
+                          llm,
+                          agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                          verbose=True,
+                          handle_parsing_errirs=True)
+
+if __name__ == "__main__":
+    result = agent.run("Book a test meeting tomorrow at 3 PM with bob@example.com")
+    print(result)
