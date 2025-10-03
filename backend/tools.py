@@ -22,15 +22,15 @@ def get_calender_service():
 
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
-    return build('calender', 'v3', credentials=creds)
+    return build('calendar', 'v3', credentials=creds)
 
 @tool
-def book_appointment(event: dict) -> str:
+def book_appointment(details: dict) -> str:
     service = get_calender_service()
     event = {
         'summary': details.get('summary', 'Appointment'),
         'start': {'dateTime': details['start_time'], 'timeZone': 'Asia/Kolkata'},
-        'end': {'dateTime': details['end_time'], 'timeZone': 'UTC'},
+        'end': {'dateTime': details['end_time'], 'timeZone': 'Asia/Kolkata'},
         'attendees': [{'email': email} for email in details.get('attendees', [])]
     }
     event = service.events().insert(calendarId='primary', body=event).execute()
@@ -40,7 +40,7 @@ def book_appointment(event: dict) -> str:
 def get_events(date: str):
     service = get_calender_service()
     start_time = datetime.datetime.fromisoformat(date).isoformat() + 'Z'
-    events_result = service.events().list(calenderId='primary', timeMin=start_time, maxResults=10, singleEvents=True).execute()
+    events_result = service.events().list(calendarId='primary', timeMin=start_time, maxResults=10, singleEvents=True).execute()
     events = events_result.get('items', [])
     return [f"{event['summary']} at {event['start'].get('dateTime')}" for event in events]
 

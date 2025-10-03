@@ -26,6 +26,20 @@ def automate(command: Command):
         return {"result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat")
+def chat(command: Command):
+    try:
+        result = automate_task(command.text)
+        return {
+            "id": f"msg_{datetime.now().timestamp()}",
+            "content": result,
+            "isUser": False,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
