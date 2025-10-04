@@ -10,6 +10,12 @@ An intelligent conversational AI assistant that automates calendar management, t
 
 ## ✨ Key Features
 
+### 💬 Natural Language Understanding
+- **Casual Commands**: Just say "book a meeting tomorrow at 10" - no formal syntax needed!
+- **Context Inference**: Agent automatically fills in missing details (duration, full dates, etc.)
+- **Smart Parsing**: Understands "tomorrow", "next monday", "at 10 AM", and more
+- **Conversational**: Ask follow-up questions and refine your requests
+
 ### 🎯 Intelligent Agent System
 - **ReAct Pattern**: Reasoning + Acting agent architecture for autonomous decision-making
 - **Local LLM**: Llama-3.2-3B model running locally for privacy and speed
