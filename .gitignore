@@ -7,21 +7,74 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Build outputs
+dist/
+dist-ssr/
+build/
 *.local
+.vite/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Google Calendar API credentials (NEVER COMMIT THESE!)
+backend/credentials.json
+backend/token.json
+
+# Task storage (generated at runtime)
+backend/tasks.json
+
+# Python virtual environment
+venv/
+env/
+ENV/
+.venv/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*~
 
-.env
-.env.*
+# OS files
+Thumbs.db
+.DS_Store
+
+# Testing
+coverage/
+.pytest_cache/
+.coverage
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+
+# Model files (too large for git)
+*.gguf
+*.bin
+*.safetensors
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

@@ -3,6 +3,7 @@ export interface Message {
   content: string;
   isUser: boolean;
   timestamp: Date;
+  status?: 'sending' | 'completed' | 'error';
 }
 
 export interface Chat {
@@ -23,4 +24,18 @@ export interface Folder {
 export interface ApiResponse {
   result: string;
   status: string;
+}
+
+export interface TaskStats {
+  total_tasks: number;
+  completed_tasks: number;
+  pending_tasks: number;
+}
+
+export interface Task {
+  id: number;
+  name: string;
+  priority: string;
+  status: string;
+  created_at: string;
 }

@@ -1,4 +1,4 @@
-import { Message } from '../types';
+import { Message, TaskStats, Task } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -19,7 +19,34 @@ export const chatService = {
       id: data.id,
       content: data.content,
       isUser: false,
-      timestamp: new Date(data.timestamp)
+      timestamp: new Date(data.timestamp),
+      status: data.status || 'completed'
     };
+  },
+
+  getStats: async (): Promise<TaskStats> => {
+    const response = await fetch(`${API_URL}/api/stats`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  getTasks: async (): Promise<Task[]> => {
+    const response = await fetch(`${API_URL}/api/tasks`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.tasks || [];
+  },
+
+  healthCheck: async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/api/health`);
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 };
