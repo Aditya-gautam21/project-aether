@@ -29,6 +29,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedChat, messages, setMessages
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
       console.error('Failed to send message:', error);
+      const errorMessage: Message = {
+        id: `error_${Date.now()}`,
+        content: 'Sorry, I encountered an error. Please try again.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 

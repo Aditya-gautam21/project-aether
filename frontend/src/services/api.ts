@@ -7,8 +7,19 @@ export const chatService = {
     const response = await fetch(`${API_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, chat_id: chatId })
+      body: JSON.stringify({ text: content, chat_id: chatId })
     });
-    return response.json();
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      id: data.id,
+      content: data.content,
+      isUser: false,
+      timestamp: new Date(data.timestamp)
+    };
   }
 };

@@ -19,6 +19,10 @@ app.add_middleware(
 class Command(BaseModel):
     text: str
 
+class ChatRequest(BaseModel):
+    text: str
+    chat_id: str = None
+
 @app.post("/automate")
 def automate(command: Command):
     try:
@@ -28,11 +32,11 @@ def automate(command: Command):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat")
-def chat(command: Command):
+def chat(request: ChatRequest):
     try:
-        result = automate_task(command.text)
+        result = automate_task(request.text)
         return {
-            "id": f"msg_{datetime.now().timestamp()}",
+            "id": f"msg_{int(datetime.now().timestamp() * 1000)}",
             "content": result,
             "isUser": False,
             "timestamp": datetime.now().isoformat()

@@ -1,12 +1,15 @@
 import React from 'react';
-import MainLayout from './components/Layout/MainLayout';
-import './App.css';
+import { ThemeProvider } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import { theme } from './theme/theme';
+import ChatInterface from './components/ChatInterface';
 
 function App() {
   return (
-    <div className="App">
-      <MainLayout />
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <ChatInterface />
+    </ThemeProvider>
   );
 }
 
