@@ -2,12 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 import json
 import asyncio
 from agents import automate_task
 from datetime import datetime
 import logging
+from integrations import integration_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,23 @@ class TaskStats(BaseModel):
     total_tasks: int
     completed_tasks: int
     pending_tasks: int
+
+class MeetingNotification(BaseModel):
+    title: str
+    date: str
+    time: str
+    duration: str
+    attendees: Optional[List[str]] = []
+    description: Optional[str] = None
+    platforms: Optional[List[str]] = None
+
+class TaskNotification(BaseModel):
+    name: str
+    priority: str
+    status: str
+    deadline: Optional[str] = None
+    description: Optional[str] = None
+    platforms: Optional[List[str]] = None
 
 @app.post("/automate")
 def automate(command: Command):
@@ -246,4 +264,161 @@ async def submit_feedback(feedback: dict):
         return {"status": "success", "message": "Thank you for your feedback!"}
     except Exception as e:
         logger.error(f"Feedback error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/schedule/suggest")
+async def suggest_meeting_times(request: dict):
+    """Suggest optimal meeting times"""
+    try:
+        from smart_scheduler import scheduler
+        from datetime import datetime
+        
+        duration = request.get('duration_minutes', 60)
+        preferred_date = request.get('preferred_date')
+        
+        if preferred_date:
+            preferred_dt = datetime.fromisoformat(preferred_date)
+        else:
+            preferred_dt = None
+        
+        suggestions = scheduler.suggest_optimal_times(
+            duration_minutes=duration,
+            preferred_date=preferred_dt
+        )
+        
+        return {
+            "suggestions": suggestions,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Schedule suggestion error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/schedule/check-conflict")
+async def check_scheduling_conflict(request: dict):
+    """Check for scheduling conflicts"""
+    try:
+        from smart_scheduler import scheduler
+        from datetime import datetime
+        
+        start = datetime.fromisoformat(request['start'])
+        end = datetime.fromisoformat(request['end'])
+        existing_events = request.get('existing_events', [])
+        
+        result = scheduler.resolve_conflict(start, end, existing_events)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Conflict check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/tasks/prioritized")
+async def get_prioritized_tasks():
+    """Get tasks sorted by priority"""
+    try:
+        from task_prioritizer import prioritizer
+        import os
+        import json
+        
+        tasks_file = 'tasks.json'
+        if not os.path.exists(tasks_file):
+            return {"tasks": [], "insights": {}}
+        
+        with open(tasks_file, 'r') as f:
+            tasks = json.load(f)
+        
+        prioritized = prioritizer.prioritize_tasks(tasks)
+        insights = prioritizer.get_task_insights(tasks)
+        next_task = prioritizer.suggest_next_task(tasks)
+        
+        return {
+            "tasks": prioritized,
+            "insights": insights,
+            "next_task": next_task,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Prioritized tasks error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Integration endpoints
+@app.get("/api/integrations/status")
+async def get_integration_status():
+    """Get status of all integrations"""
+    try:
+        status = integration_manager.get_available_integrations()
+        return {
+            "integrations": status,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Integration status error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/integrations/meeting")
+async def send_meeting_notification(notification: MeetingNotification):
+    """Send meeting notification to configured platforms"""
+    try:
+        meeting_details = notification.dict()
+        results = integration_manager.send_meeting_notification(
+            meeting_details, 
+            notification.platforms
+        )
+        
+        return {
+            "success": True,
+            "results": results,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Meeting notification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/integrations/task")
+async def send_task_notification(notification: TaskNotification):
+    """Send task notification to configured platforms"""
+    try:
+        task_details = notification.dict()
+        results = integration_manager.send_task_notification(
+            task_details, 
+            notification.platforms
+        )
+        
+        return {
+            "success": True,
+            "results": results,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Task notification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/integrations/slack/channels")
+async def get_slack_channels():
+    """Get available Slack channels"""
+    try:
+        if not integration_manager.slack.is_configured():
+            raise HTTPException(status_code=400, detail="Slack not configured")
+        
+        channels = integration_manager.slack.get_channels()
+        return {
+            "channels": channels,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Slack channels error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/integrations/google-workspace/auth")
+async def authenticate_google_workspace():
+    """Authenticate with Google Workspace"""
+    try:
+        success = integration_manager.google_workspace.authenticate()
+        return {
+            "success": success,
+            "message": "Authentication successful" if success else "Authentication failed",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Google Workspace auth error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

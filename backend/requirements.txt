@@ -11,3 +11,10 @@ google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
 requests==2.31.0
 python-dotenv==1.0.0
+pytz==2023.3
+pytest==7.4.3
+pytest-asyncio==0.21.1
+# Integration dependencies
+slack-sdk==3.23.0
+microsoft-graph-core==0.2.2
+google-auth==2.23.4
