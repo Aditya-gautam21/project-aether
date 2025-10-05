@@ -3,6 +3,7 @@ Integration Manager
 Coordinates all external platform integrations
 """
 
+from typing import Dict, List
 from .slack_integration import slack_integration
 from .teams_integration import teams_integration
 from .google_workspace_integration import google_workspace

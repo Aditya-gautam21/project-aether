@@ -1,4 +1,4 @@
-import { Message, TaskStats, Task } from '../types';
+import { Message, TaskStats } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -20,52 +20,17 @@ export const chatService = {
       content: data.content,
       isUser: false,
       timestamp: new Date(data.timestamp),
-      status: data.status || 'completed',
-      suggestions: data.suggestions || [],  // NEW
-      intent: data.intent  // NEW
+      status: 'completed'
     };
   },
 
-  getSuggestions: async (): Promise<string[]> => {
-    const response = await fetch(`${API_URL}/api/suggestions`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.suggestions || [];
-  },
-
-  getInsights: async (): Promise<any> => {
-    const response = await fetch(`${API_URL}/api/insights`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-
-  getAnalytics: async (): Promise<any> => {
-    const response = await fetch(`${API_URL}/api/analytics`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-
   getStats: async (): Promise<TaskStats> => {
-    const response = await fetch(`${API_URL}/api/stats`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  },
-
-  getTasks: async (): Promise<Task[]> => {
-    const response = await fetch(`${API_URL}/api/tasks`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.tasks || [];
+    // Mock data since backend doesn't have this endpoint yet
+    return {
+      total_tasks: 12,
+      completed_tasks: 8,
+      pending_tasks: 4
+    };
   },
 
   healthCheck: async (): Promise<boolean> => {

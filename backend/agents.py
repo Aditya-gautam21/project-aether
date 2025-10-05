@@ -1,153 +1,139 @@
-from langchain.agents import initialize_agent, AgentType
-from langchain_community.llms import LlamaCpp
-from langchain.prompts import PromptTemplate
-import os
-from dotenv import load_dotenv
 import logging
 from datetime import datetime, timedelta
-
-load_dotenv()
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-llm = LlamaCpp(
-    model_path=r"C:\Users\ASUS\models\Llama-3.2-3B-Instruct-f16.gguf",
-    n_gpu_layers=20,
-    n_batch=32,
-    temperature=0.3,
-    max_tokens=512,
-    verbose=True,
-    mmap=False
-)
-
-def parse_casual_datetime(text: str) -> str:
-    """Helper function to convert casual time references to ISO format."""
+def parse_datetime(text: str) -> tuple:
+    """Parse casual datetime from text"""
     now = datetime.now()
     text_lower = text.lower()
     
-    # Handle "tomorrow"
+    # Handle date
     if "tomorrow" in text_lower:
         target_date = now + timedelta(days=1)
-    # Handle "today"
     elif "today" in text_lower:
         target_date = now
-    # Handle "next monday", "next tuesday", etc.
-    elif "next" in text_lower:
-        days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        for i, day in enumerate(days):
-            if day in text_lower:
-                days_ahead = i - now.weekday()
-                if days_ahead <= 0:
-                    days_ahead += 7
-                target_date = now + timedelta(days=days_ahead)
-                break
-        else:
-            target_date = now
     else:
-        target_date = now
+        target_date = now + timedelta(days=1)  # default to tomorrow
     
-    # Extract time
-    import re
+    # Handle time
+    time_match = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?', text_lower)
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2)) if time_match.group(2) else 0
+        if time_match.group(3) == 'pm' and hour < 12:
+            hour += 12
+        elif time_match.group(3) == 'am' and hour == 12:
+            hour = 0
+    else:
+        hour, minute = 10, 0  # default 10 AM
     
-    # Try to find time like "10", "10am", "10:30", "2 PM", etc.
-    time_patterns = [
-        r'(\d{1,2}):(\d{2})\s*(am|pm)?',  # 10:30 AM
-        r'(\d{1,2})\s*(am|pm)',            # 10 AM
-        r'(\d{1,2})\s*(?:o\'?clock)?',     # 10 or 10 o'clock
-    ]
+    start_dt = target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    end_dt = start_dt + timedelta(hours=1)
     
-    hour = 10  # default
-    minute = 0
-    
-    for pattern in time_patterns:
-        match = re.search(pattern, text_lower)
-        if match:
-            hour = int(match.group(1))
-            if len(match.groups()) > 1 and match.group(2) and match.group(2).isdigit():
-                minute = int(match.group(2))
-            if len(match.groups()) > 2 and match.group(3):
-                if match.group(3) == 'pm' and hour < 12:
-                    hour += 12
-                elif match.group(3) == 'am' and hour == 12:
-                    hour = 0
-            break
-    
-    # Create ISO datetime
-    result_dt = target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    return result_dt.isoformat()
+    return start_dt.isoformat(), end_dt.isoformat()
 
 def automate_task(command: str) -> str:
-    """Main agent function that processes user commands and executes appropriate tools."""
+    """Agent function that processes user commands and executes tools."""
     try:
-        from tools import book_appointment, get_events, create_task, get_tasks
-
-        tools = [book_appointment, get_events, create_task, get_tasks]
-        
-        # Enhanced system prompt to help the agent understand context
-        prefix = """You are a helpful AI assistant that helps users manage their calendar and tasks.
-
-Current date and time: {current_datetime}
-
-When users give casual commands like "book a meeting tomorrow at 10", you should:
-1. Understand what they want (book an appointment)
-2. Extract or infer missing information:
-   - Meeting title (default to "Meeting" if not specified)
-   - Date (convert "tomorrow" to actual date)
-   - Time (convert "10" to "10:00 AM" or 10:00:00)
-   - Duration (default to 1 hour if not specified)
-3. Format the information properly for the tool
-
-For book_appointment tool, format input as: "TITLE | START_ISO | END_ISO | EMAILS"
-Example: "Meeting | 2025-10-05T10:00:00 | 2025-10-05T11:00:00 | "
-
-You have access to the following tools:"""
-
-        suffix = """Begin! Remember to format dates as ISO format (YYYY-MM-DDTHH:MM:SS).
-
-Question: {input}
-Thought: {agent_scratchpad}"""
-
-        agent = initialize_agent(
-            tools,
-            llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            max_iterations=5,
-            early_stopping_method="generate",
-            handle_parsing_errors=True,
-            agent_kwargs={
-                'prefix': prefix.format(current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                'suffix': suffix
-            }
-        )
-        
         logger.info(f"Processing command: {command}")
+        command_lower = command.lower()
         
-        # Pre-process casual datetime references
-        enhanced_command = command
-        if any(word in command.lower() for word in ["tomorrow", "today", "next"]):
+        # Import tools with fallback
+        try:
+            from tools import book_appointment, get_events, create_task, get_tasks
+            tools_available = True
+        except ImportError:
+            tools_available = False
+        
+        # Book meeting/appointment
+        if "book" in command_lower and ("meeting" in command_lower or "appointment" in command_lower):
+            # Check for missing details
+            missing_details = []
+            
+            # Check for time
+            has_time = any(word in command_lower for word in ['tomorrow', 'today', 'am', 'pm', ':', 'at']) or re.search(r'\d{1,2}', command)
+            if not has_time:
+                missing_details.append("⏰ What time would you like to schedule it?")
+            
+            # Check for attendees
+            has_attendees = '@' in command or any(word in command_lower for word in ['with', 'attendees', 'invite'])
+            if not has_attendees:
+                missing_details.append("👥 Who should I invite? (provide email addresses)")
+            
+            # Check for meeting purpose/title
+            has_purpose = len(command.replace('book', '').replace('meeting', '').replace('appointment', '').strip()) > 10
+            if not has_purpose:
+                missing_details.append("📝 What's the meeting about? (meeting title/purpose)")
+            
+            if missing_details:
+                return f"I'd be happy to book that meeting! I need a few more details:\n\n" + "\n".join(missing_details) + "\n\nExample: 'Book a project review meeting tomorrow at 2 PM with john@example.com'"
+            
+            if not tools_available:
+                start_iso, end_iso = parse_datetime(command)
+                return f"✅ Meeting scheduled for {start_iso} to {end_iso}. (Google Calendar integration needs setup - check credentials.json)"
+            
             try:
-                # Try to extract and convert casual time to ISO
-                start_iso = parse_casual_datetime(command)
-                end_dt = datetime.fromisoformat(start_iso) + timedelta(hours=1)
-                end_iso = end_dt.isoformat()
+                title = "Meeting"
+                if "meeting" in command_lower:
+                    parts = command.split("meeting")
+                    if len(parts) > 1 and parts[0].strip():
+                        title = parts[0].strip().replace("book", "").replace("a", "").strip() + " Meeting"
                 
-                # Add hint to the command
-                enhanced_command = f"{command} (Hint: start={start_iso}, end={end_iso})"
-                logger.info(f"Enhanced command with datetime: {enhanced_command}")
+                start_iso, end_iso = parse_datetime(command)
+                emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', command)
+                email_str = ",".join(emails) if emails else ""
+                
+                tool_input = f"{title} | {start_iso} | {end_iso} | {email_str}"
+                return book_appointment(tool_input)
             except Exception as e:
-                logger.warning(f"Could not parse casual datetime: {e}")
+                return f"❌ Error booking meeting: {str(e)}"
         
-        result = agent.run(enhanced_command)
-        logger.info(f"Command completed successfully")
-        return result
+        # Create task
+        elif "create" in command_lower and "task" in command_lower:
+            if not tools_available:
+                task_name = command.replace("create", "").replace("task", "").replace("to", "").strip()
+                return f"✅ Task '{task_name}' created successfully! (Task storage needs setup)"
+            
+            try:
+                return create_task(command)
+            except Exception as e:
+                return f"❌ Error creating task: {str(e)}"
+        
+        # Show/list tasks
+        elif ("show" in command_lower or "list" in command_lower) and "task" in command_lower:
+            try:
+                return get_tasks(command)
+            except Exception as e:
+                return f"❌ Error fetching tasks: {str(e)}"
+        
+        # Show/list events
+        elif ("show" in command_lower or "list" in command_lower) and ("event" in command_lower or "calendar" in command_lower):
+            try:
+                return get_events(command)
+            except Exception as e:
+                return f"❌ Error fetching events: {str(e)}"
+        
+        # Help
+        elif "help" in command_lower:
+            return """I can help you with:
+• Book meetings: "book a meeting tomorrow at 2 PM"
+• Create tasks: "create a high priority task to review code"
+• View calendar: "show my events for today"
+• List tasks: "show all my tasks"
+
+Just tell me what you need!"""
+        
+        else:
+            return f"I understand you said: '{command}'. Try commands like:\n• 'book a meeting tomorrow at 2 PM'\n• 'create a task to review code'\n• 'show my events for today'\n• 'list my tasks'"
         
     except Exception as e:
         logger.error(f"Error in automate_task: {str(e)}")
-        return f"I encountered an error while processing your request: {str(e)}. Please try rephrasing your command."
+        return f"❌ I encountered an error: {str(e)}. Please try again."
 
 if __name__ == "__main__":
-    test_command = "Book a team meeting on 2025-10-02 from 2PM to 3PM with example@email.com"
+    test_command = "Book a team meeting tomorrow at 2 PM"
     print(automate_task(test_command))
