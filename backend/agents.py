@@ -6,6 +6,38 @@ import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def handle_general_chat(message: str) -> str:
+    """Handle general chat messages and questions"""
+    message_lower = message.lower()
+    
+    # Greetings
+    if any(word in message_lower for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']):
+        return "Hello! I'm your AI assistant. I can help you with booking meetings, creating tasks, managing your calendar, and answering questions. How can I assist you today?"
+    
+    # About the assistant
+    if any(word in message_lower for word in ['what are you', 'who are you', 'what can you do']):
+        return "I'm an AI assistant that specializes in productivity and automation. I can help you:\n• Book meetings and appointments\n• Create and manage tasks\n• View calendar events\n• Answer questions and have conversations\n\nWhat would you like to do?"
+    
+    # How questions
+    if message_lower.startswith('how'):
+        if 'meeting' in message_lower or 'appointment' in message_lower:
+            return "To book a meeting, just tell me: 'Book a [meeting name] on [date] at [time] with [email]'\n\nExample: 'Book a team standup tomorrow at 2 PM with john@example.com'"
+        elif 'task' in message_lower:
+            return "To create a task, just say: 'Create a [priority] task to [description]'\n\nExample: 'Create a high priority task to review the project proposal'"
+        else:
+            return "I can help you with various tasks! Try asking me to book meetings, create tasks, or view your calendar. You can also ask me questions and I'll do my best to help."
+    
+    # What questions
+    if message_lower.startswith('what'):
+        return "I can help you with productivity tasks like scheduling, task management, and general questions. What specific thing would you like to know about?"
+    
+    # Thank you
+    if any(word in message_lower for word in ['thank', 'thanks']):
+        return "You're welcome! I'm here to help whenever you need assistance with your tasks and schedule."
+    
+    # General questions - provide helpful response
+    return f"I understand you're asking about: '{message}'. While I specialize in calendar and task management, I'm happy to help! Could you provide more details or let me know if you'd like to book a meeting or create a task instead?"
+
 def parse_datetime(text: str) -> tuple:
     """Parse casual datetime from text"""
     now = datetime.now()
@@ -48,6 +80,10 @@ def automate_task(command: str) -> str:
             tools_available = True
         except ImportError:
             tools_available = False
+        
+        # Handle general chat/questions first
+        if not any(keyword in command_lower for keyword in ['book', 'create', 'show', 'list', 'schedule', 'task', 'meeting', 'appointment', 'event', 'calendar']):
+            return handle_general_chat(command)
         
         # Book meeting/appointment
         if "book" in command_lower and ("meeting" in command_lower or "appointment" in command_lower):
