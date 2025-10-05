@@ -48,25 +48,22 @@ def automate(command: Command):
 
 @app.post("/api/chat")
 def chat(request: ChatRequest):
-    """Main chat endpoint with enhanced response"""
+    """Main chat endpoint with enhanced AI features"""
     try:
         logger.info(f"Chat request from {request.chat_id}: {request.text}")
         
-        # Try simple agent first (more reliable)
-        try:
-            from simple_agent import simple_automate
-            result = simple_automate(request.text)
-        except Exception as simple_error:
-            logger.warning(f"Simple agent failed, trying full agent: {simple_error}")
-            # Fallback to full agent
-            result = automate_task(request.text)
+        # Use enhanced agent with smart features
+        from enhanced_agent import agent
+        result = agent.process_command(request.text)
         
         response = {
             "id": f"msg_{int(datetime.now().timestamp() * 1000)}",
-            "content": result,
+            "content": result['message'],
             "isUser": False,
             "timestamp": datetime.now().isoformat(),
-            "status": "completed"
+            "status": "completed" if result['success'] else "error",
+            "suggestions": result.get('suggestions', []),  # NEW: Smart suggestions
+            "intent": result.get('intent', 'unknown')  # NEW: Detected intent
         }
         
         logger.info(f"Chat response sent successfully")
@@ -79,7 +76,8 @@ def chat(request: ChatRequest):
             "content": f"I apologize, but I encountered an error: {str(e)}. Please try again or rephrase your request.",
             "isUser": False,
             "timestamp": datetime.now().isoformat(),
-            "status": "error"
+            "status": "error",
+            "suggestions": ["Try rephrasing your command", "Type 'help' for available commands"]
         }
         return error_response
 
@@ -143,4 +141,109 @@ async def list_tasks():
         return {"tasks": tasks}
     except Exception as e:
         logger.error(f"List tasks error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/suggestions")
+async def get_suggestions():
+    """Get smart AI suggestions based on context"""
+    try:
+        from enhanced_agent import agent
+        suggestions = agent.get_smart_suggestions()
+        
+        return {
+            "suggestions": suggestions,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Suggestions error: {str(e)}")
+        return {"suggestions": [], "error": str(e)}
+
+@app.get("/api/insights")
+async def get_insights():
+    """Get productivity insights and analytics"""
+    try:
+        from enhanced_agent import agent
+        insights = agent.get_productivity_insights()
+        
+        return {
+            **insights,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Insights error: {str(e)}")
+        return {
+            "total_commands": 0,
+            "most_used_feature": "N/A",
+            "productivity_score": 0,
+            "suggestions": [],
+            "error": str(e)
+        }
+
+@app.get("/api/analytics")
+async def get_analytics():
+    """Get detailed usage analytics"""
+    try:
+        import os
+        import json
+        from collections import Counter
+        
+        analytics_file = 'analytics.json'
+        if not os.path.exists(analytics_file):
+            return {
+                "total_commands": 0,
+                "commands_by_intent": {},
+                "success_rate": 0,
+                "recent_activity": []
+            }
+        
+        with open(analytics_file, 'r') as f:
+            data = json.load(f)
+            commands = data.get('commands', [])
+        
+        # Calculate metrics
+        intent_counts = Counter(cmd['intent'] for cmd in commands)
+        success_count = sum(1 for cmd in commands if cmd.get('success', False))
+        success_rate = (success_count / len(commands) * 100) if commands else 0
+        
+        # Recent activity (last 10)
+        recent = commands[-10:] if len(commands) > 10 else commands
+        
+        return {
+            "total_commands": len(commands),
+            "commands_by_intent": dict(intent_counts),
+            "success_rate": round(success_rate, 2),
+            "recent_activity": recent,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Analytics error: {str(e)}")
+        return {
+            "total_commands": 0,
+            "commands_by_intent": {},
+            "success_rate": 0,
+            "recent_activity": [],
+            "error": str(e)
+        }
+
+@app.post("/api/feedback")
+async def submit_feedback(feedback: dict):
+    """Submit user feedback on AI responses"""
+    try:
+        feedback_file = 'feedback.json'
+        
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                all_feedback = json.load(f)
+        else:
+            all_feedback = []
+        
+        feedback['timestamp'] = datetime.now().isoformat()
+        all_feedback.append(feedback)
+        
+        with open(feedback_file, 'w') as f:
+            json.dump(all_feedback, f, indent=2)
+        
+        return {"status": "success", "message": "Thank you for your feedback!"}
+    except Exception as e:
+        logger.error(f"Feedback error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

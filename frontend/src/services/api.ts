@@ -20,8 +20,35 @@ export const chatService = {
       content: data.content,
       isUser: false,
       timestamp: new Date(data.timestamp),
-      status: data.status || 'completed'
+      status: data.status || 'completed',
+      suggestions: data.suggestions || [],  // NEW
+      intent: data.intent  // NEW
     };
+  },
+
+  getSuggestions: async (): Promise<string[]> => {
+    const response = await fetch(`${API_URL}/api/suggestions`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.suggestions || [];
+  },
+
+  getInsights: async (): Promise<any> => {
+    const response = await fetch(`${API_URL}/api/insights`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  getAnalytics: async (): Promise<any> => {
+    const response = await fetch(`${API_URL}/api/analytics`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   },
 
   getStats: async (): Promise<TaskStats> => {

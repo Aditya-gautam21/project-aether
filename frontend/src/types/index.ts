@@ -4,6 +4,8 @@ export interface Message {
   isUser: boolean;
   timestamp: Date;
   status?: 'sending' | 'completed' | 'error';
+  suggestions?: string[];  // NEW: AI suggestions
+  intent?: string;  // NEW: Detected intent
 }
 
 export interface Chat {
