@@ -52,8 +52,14 @@ def chat(request: ChatRequest):
     try:
         logger.info(f"Chat request from {request.chat_id}: {request.text}")
         
-        # Process the command
-        result = automate_task(request.text)
+        # Try simple agent first (more reliable)
+        try:
+            from simple_agent import simple_automate
+            result = simple_automate(request.text)
+        except Exception as simple_error:
+            logger.warning(f"Simple agent failed, trying full agent: {simple_error}")
+            # Fallback to full agent
+            result = automate_task(request.text)
         
         response = {
             "id": f"msg_{int(datetime.now().timestamp() * 1000)}",
