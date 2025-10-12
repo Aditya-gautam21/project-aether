@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import logging
-#fe fi foe fum
 try:
     from agents import automate_task
 except ImportError:
