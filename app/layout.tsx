@@ -1,27 +1,27 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { Providers } from '@/components/providers'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "sonner";
+import { cn } from "@/lib/utils";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AI Chatbot',
-  description: 'A modern AI chatbot built with Next.js and Vercel AI SDK',
-}
+    title: "Aether AI",
+    description: "Dynamic AI Chat Interface",
+};
 
 export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <Providers>
-          {children}
-        </Providers>
-      </body>
-    </html>
-  )
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <html lang="en">
+            <body className={cn(inter.className, "antialiased h-screen overflow-hidden")}>
+                {children}
+                <Toaster position="top-center" />
+            </body>
+        </html>
+    );
 }

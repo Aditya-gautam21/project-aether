@@ -54,6 +54,8 @@ ENV/
 *.sw?
 *.swp
 *~
+.next
+
 
 # OS files
 Thumbs.db
