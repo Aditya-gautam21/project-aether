@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from sqlalchemy.orm import Session
-from models import Task, CalendarEvent, User
+from models import Task, CalendarEvent, User, Habit, FinanceBudget, SocialConnection
 from database import get_db
 import re
 
@@ -618,3 +618,26 @@ def create_task(description: str) -> str:
 def get_tasks(query: str = "") -> str:
     result = task_tools.get_tasks(query)
     return result['message']
+
+class EnhancedHabitTools:
+    def log_habit(self, habit_name: str, user_id: str) -> dict:
+        try:
+            db = next(get_db())
+            habit = db.query(Habit).filter(Habit.user_id == user_id, Habit.name.ilike(f"%{habit_name}%")).first()
+            if not habit:
+                habit = Habit(user_id=user_id, name=habit_name, logs="[]", streak_count=1)
+                db.add(habit)
+            else:
+                habit.streak_count += 1
+            db.commit()
+            
+            return {
+                'success': True,
+                'message': f'✅ Habit {habit_name} logged! Streak is now {habit.streak_count}',
+                'habit': { 'id': habit.id, 'name': habit.name, 'streak': habit.streak_count, 'streak_count': habit.streak_count }
+            }
+        except Exception as e:
+            logger.error(f"Error logging habit: {e}")
+            return {'success': False, 'message': f'❌ Failed: {e}'}
+
+habit_tools = EnhancedHabitTools()
