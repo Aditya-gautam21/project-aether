@@ -62,6 +62,16 @@ class ConnectionManager:
         if user_id in self.user_sessions:
             session_id = self.user_sessions[user_id]
             await self.send_message(session_id, message)
+            
+    async def broadcast_dashboard_sync(self, user_id: str, data: dict):
+        """Send dashboard state update to user's active session"""
+        if user_id in self.user_sessions:
+            session_id = self.user_sessions[user_id]
+            await self.send_message(session_id, {
+                "type": "dashboard_sync",
+                "data": data,
+                "timestamp": datetime.now().isoformat()
+            })
     
     def get_active_sessions(self) -> List[str]:
         """Get list of active session IDs"""
