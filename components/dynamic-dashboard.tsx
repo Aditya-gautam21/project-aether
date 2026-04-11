@@ -3,29 +3,31 @@
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { 
-    ProfileWidget, 
-    AccordionsWidget, 
-    ProgressWidget, 
-    CalendarWidget, 
-    MetricsWidget, 
     ChatbotWidget,
+    ProfileWidget,
     WidgetDragHandle
 } from "./dashboard-widgets";
+import {
+    TasksWidget,
+    HabitsWidget,
+    FinanceWidget,
+    SocialWidget
+} from "./aether-widgets";
 
 const WIDGETS: Record<string, React.FC<any>> = {
-    profile: ProfileWidget,
-    accordions: AccordionsWidget,
-    progress: ProgressWidget,
-    calendar: CalendarWidget,
-    metrics: MetricsWidget,
-    chatbot: ChatbotWidget
+    tasks: TasksWidget,
+    habits: HabitsWidget,
+    finance: FinanceWidget,
+    social: SocialWidget,
+    chatbot: ChatbotWidget,
+    profile: ProfileWidget // fallback
 };
 
 export function DynamicDashboard({ chatId }: { chatId: string }) {
     const [columns, setColumns] = useState({
-        left: ["profile", "accordions"],
-        middle: ["progress", "calendar"],
-        right: ["metrics", "chatbot"]
+        left: ["tasks", "finance"],
+        middle: ["habits", "social"],
+        right: ["chatbot"]
     });
 
     const onDragEnd = (result: DropResult) => {
