@@ -56,8 +56,9 @@ class Task(Base):
     user_id = Column(String, ForeignKey("users.id"))
     title = Column(String)
     description = Column(Text)
-    priority = Column(String, default="medium")  # low, medium, high
-    status = Column(String, default="pending")  # pending, in_progress, completed
+    priority = Column(String, default="medium")
+    status = Column(String, default="pending") 
+    tag = Column(String, default="general") # habit/finance/social/general
     due_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -65,17 +66,30 @@ class Task(Base):
     # Relationships
     user = relationship("User", back_populates="tasks")
 
-class CalendarEvent(Base):
-    __tablename__ = "calendar_events"
+class Habit(Base):
+    __tablename__ = "habits"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    google_event_id = Column(String, unique=True)
     user_id = Column(String, ForeignKey("users.id"))
-    title = Column(String)
-    description = Column(Text)
-    start_time = Column(DateTime)
-    end_time = Column(DateTime)
-    attendees = Column(Text)  # JSON array
-    location = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    name = Column(String)
+    streak_count = Column(Integer, default=0)
+    logs = Column(Text) # JSON array of dates
+
+class FinanceBudget(Base):
+    __tablename__ = "finance_budgets"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    category = Column(String)
+    amount_spent = Column(Integer, default=0)
+    allotted_limit = Column(Integer, default=0)
+    month = Column(String)
+
+class SocialConnection(Base):
+    __tablename__ = "social_connections"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    person_name = Column(String)
+    last_contacted = Column(DateTime)
+    status = Column(String, default="ping") # overdue/done/ping
