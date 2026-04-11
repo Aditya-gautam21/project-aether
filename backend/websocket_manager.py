@@ -126,7 +126,7 @@ class ChatWebSocketHandler:
             
             # Import AI service
             from ai_service import ai_service
-            from enhanced_tools import calendar_tools, task_tools
+            from enhanced_tools import calendar_tools, task_tools, habit_tools
             
             # Get conversation context (simplified for now)
             context = message_data.get("context", [])
@@ -158,6 +158,16 @@ class ChatWebSocketHandler:
                         "type": "task_created",
                         "task": result['task'],
                         "timestamp": datetime.now().isoformat()
+                    })
+            
+            elif any(keyword in content_lower for keyword in ['log', 'habit', 'gym', 'journal']):
+                result = habit_tools.log_habit(content, user_id)
+                response_content = result['message']
+                
+                if result['success']:
+                    # Emit to update dashboard!
+                    await self.manager.broadcast_dashboard_sync(user_id, {
+                        "habits": [result['habit']]
                     })
             
             elif any(keyword in content_lower for keyword in ['show', 'list', 'get']) and ('event' in content_lower or 'calendar' in content_lower):
