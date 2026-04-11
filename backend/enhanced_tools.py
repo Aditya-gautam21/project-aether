@@ -641,3 +641,47 @@ class EnhancedHabitTools:
             return {'success': False, 'message': f'❌ Failed: {e}'}
 
 habit_tools = EnhancedHabitTools()
+
+class EnhancedFinanceTools:
+    def log_expense(self, category: str, amount: int, user_id: str) -> dict:
+        try:
+            db = next(get_db())
+            budget = db.query(FinanceBudget).filter(FinanceBudget.user_id == user_id, FinanceBudget.category.ilike(f"%{category}%")).first()
+            if not budget:
+                budget = FinanceBudget(user_id=user_id, category=category, amount_spent=amount, allotted_limit=5000, month=datetime.now().strftime("%B"))
+                db.add(budget)
+            else:
+                budget.amount_spent += amount
+            db.commit()
+            
+            return {
+                'success': True,
+                'message': f'✅ ₹{amount} logged under {budget.category}.',
+                'finance': { 'id': budget.id, 'name': budget.category, 'spent': budget.amount_spent, 'limit': budget.allotted_limit, 'color': 'bg-[#F25A5A]' }
+            }
+        except Exception as e:
+            return {'success': False, 'message': f'❌ Failed: {e}'}
+
+class EnhancedSocialTools:
+    def log_interaction(self, person: str, action: str, user_id: str) -> dict:
+        try:
+            db = next(get_db())
+            connection = db.query(SocialConnection).filter(SocialConnection.user_id == user_id, SocialConnection.person_name.ilike(f"%{person}%")).first()
+            if not connection:
+                connection = SocialConnection(user_id=user_id, person_name=person, status="Just talked", last_contacted=datetime.now())
+                db.add(connection)
+            else:
+                connection.status = "Just talked"
+                connection.last_contacted=datetime.now()
+            db.commit()
+            
+            return {
+                'success': True,
+                'message': f'✅ Logged interaction with {person}.',
+                'social': { 'id': connection.id, 'name': connection.person_name, 'status': connection.status, 'action': 'Ping', 'actionColor': 'text-[#4AE189] bg-[#4AE189]/10' }
+            }
+        except Exception as e:
+            return {'success': False, 'message': f'❌ Failed: {e}'}
+
+finance_tools = EnhancedFinanceTools()
+social_tools = EnhancedSocialTools()
