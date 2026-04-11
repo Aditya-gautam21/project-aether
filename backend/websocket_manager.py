@@ -126,7 +126,7 @@ class ChatWebSocketHandler:
             
             # Import AI service
             from ai_service import ai_service
-            from enhanced_tools import calendar_tools, task_tools, habit_tools
+            from enhanced_tools import calendar_tools, task_tools, habit_tools, finance_tools, social_tools
             
             # Get conversation context (simplified for now)
             context = message_data.get("context", [])
@@ -169,7 +169,23 @@ class ChatWebSocketHandler:
                     await self.manager.broadcast_dashboard_sync(user_id, {
                         "habits": [result['habit']]
                     })
-            
+            elif any(keyword in content_lower for keyword in ['spent', 'cost', 'bought', 'expense']):
+                # Simple mock extraction for now
+                amount = int(''.join(filter(str.isdigit, content_lower)) or 0)
+                result = finance_tools.log_expense("Food/General", amount, user_id)
+                response_content = result['message']
+                if result['success']:
+                    await self.manager.broadcast_dashboard_sync(user_id, {"finances": [result['finance']]})
+
+            elif any(keyword in content_lower for keyword in ['talked to', 'met', 'messaged', 'called', 'reach out']):
+                # Simple extraction
+                parts = content_lower.split(" ")
+                person = parts[-1] if len(parts) > 1 else "Friend"
+                result = social_tools.log_interaction(person, "ping", user_id)
+                response_content = result['message']
+                if result['success']:
+                    await self.manager.broadcast_dashboard_sync(user_id, {"social": [result['social']]})
+                    
             elif any(keyword in content_lower for keyword in ['show', 'list', 'get']) and ('event' in content_lower or 'calendar' in content_lower):
                 # Handle event listing
                 result = calendar_tools.get_events(content, user_id)
