@@ -123,6 +123,26 @@ async def health_check():
         "openai_configured": bool(openai.api_key)
     }
 
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from database import get_db
+
+@app.get("/api/dashboard/initial-state")
+async def get_dashboard_state(user_id: str, db: Session = Depends(get_db)):
+    from models import Task, Habit, FinanceBudget, SocialConnection
+    
+    tasks = db.query(Task).filter(Task.user_id == user_id).all()
+    habits = db.query(Habit).filter(Habit.user_id == user_id).all()
+    finances = db.query(FinanceBudget).filter(FinanceBudget.user_id == user_id).all()
+    social = db.query(SocialConnection).filter(SocialConnection.user_id == user_id).all()
+
+    return {
+        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "tag": t.tag} for t in tasks],
+        "habits": [{"id": h.id, "name": h.name, "streak": h.streak_count} for h in habits],
+        "finances": [{"id": f.id, "name": f.category, "spent": f.amount_spent, "limit": f.allotted_limit, "color": "bg-[#7C63F5]"} for f in finances],
+        "social": [{"id": s.id, "name": s.person_name, "status": s.status, "action": "Ping", "actionColor": "text-[#4AE189] bg-[#4AE189]/10"} for s in social],
+    }
+
 # Remove static file serving since we're using Next.js frontend
 
 if __name__ == "__main__":
