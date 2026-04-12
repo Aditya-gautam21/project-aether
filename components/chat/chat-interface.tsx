@@ -1,6 +1,5 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,23 +7,81 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyScreen } from "./empty-screen";
 import { MessageBubble } from "./message-bubble";
 import { Send, Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocalStorage } from "@/lib/hooks";
+import { useDashboard } from "@/app/context/DashboardContext";
+import { nanoid } from "nanoid";
 
 export function ChatInterface({ id }: { id: string }) {
-    const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-        api: "/api/chat",
-        id,
-        initialMessages: [],
-        // Since our backend emits custom SSE, we might need a custom fetcher if useChat fails.
-        // simpler approach: useChat standard, if it fails we debug. 
-        // Standard AI SDK usually expects text stream or specific parts.
-        // Our backend sends "data: {content: ...}". This might need parsing.
-        onError: (e) => console.error("Chat Error", e),
-    });
-
+    const [messages, setMessages] = useState<any[]>([]);
+    const [input, setInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const wsRef = useRef<WebSocket | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const [history, setHistory] = useLocalStorage<any[]>("chat-history", []);
+    const { updateDashboardState } = useDashboard();
+
+    // Configure WebSocket
+    useEffect(() => {
+        // Use a generic test_user for MVP
+        const ws = new WebSocket("ws://localhost:8000/ws/test_user");
+        wsRef.current = ws;
+
+        ws.onopen = () => console.log("Connected to Aether Backend");
+        
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === "dashboard_sync") {
+                    // Update React Context!
+                    updateDashboardState(data.data);
+                    setIsLoading(false);
+                } 
+                else if (data.type === "chat_message") {
+                    setMessages((prev) => [...prev, {
+                        id: nanoid(),
+                        role: data.role || "assistant",
+                        content: data.content
+                    }]);
+                    setIsLoading(false);
+                }
+                else if (data.type === "typing") {
+                    setIsLoading(data.is_typing);
+                }
+                else if (data.type === "error") {
+                    setMessages((prev) => [...prev, {
+                        id: nanoid(),
+                        role: "assistant",
+                        content: `Error: ${data.message}`
+                    }]);
+                    setIsLoading(false);
+                }
+            } catch (e) {
+                console.error("Failed to parse WS message", e);
+            }
+        };
+
+        ws.onclose = () => console.log("Disconnected from Aether Backend");
+
+        return () => ws.close();
+    }, [updateDashboardState]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || !wsRef.current) return;
+
+        const outgoing = { id: nanoid(), role: "user", content: input };
+        setMessages((prev) => [...prev, outgoing]);
+        
+        wsRef.current.send(JSON.stringify({
+            type: "chat_message",
+            content: input
+        }));
+        
+        setInput("");
+        setIsLoading(true);
+    };
 
     // Save to history when messages change
     useEffect(() => {
@@ -42,21 +99,21 @@ export function ChatInterface({ id }: { id: string }) {
         }
     }, [messages, id, setHistory]);
 
-    // Auto scroll
+    // Auto scroll securely
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            scrollRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages]);
+    }, [messages, isLoading]);
 
     return (
         <div className="flex flex-col h-full w-full">
             {/* Messages */}
             <div className="flex-1 overflow-hidden p-6 relative">
                 {messages.length === 0 ? (
-                    <EmptyScreen setInput={(val) => handleInputChange({ target: { value: val } } as any)} />
+                    <EmptyScreen setInput={setInput} />
                 ) : (
-                    <ScrollArea className="h-full pr-4" ref={scrollRef}>
+                    <ScrollArea className="h-full pr-4">
                         <div className="flex flex-col gap-6 pb-20">
                             {messages.map((m) => (
                                 <MessageBubble key={m.id} role={m.role} content={m.content} />
@@ -67,6 +124,7 @@ export function ChatInterface({ id }: { id: string }) {
                                     Thinking...
                                 </div>
                             )}
+                            <div ref={scrollRef} />
                         </div>
                     </ScrollArea>
                 )}
@@ -77,7 +135,7 @@ export function ChatInterface({ id }: { id: string }) {
                 <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto">
                     <Input
                         value={input}
-                        onChange={handleInputChange}
+                        onChange={(e) => setInput(e.target.value)}
                         placeholder="Start typing your request..."
                         className="pr-14 h-14 rounded-full shadow-sm bg-background border-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-0 placeholder:text-muted-foreground transition-shadow text-base"
                     />

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Settings, Bell, User, ArrowUpRight, Play, Pause, Clock, Search, Briefcase, Users, Monitor, LayoutDashboard, CheckCircle2, ChevronDown, MoreVertical } from "lucide-react";
+import { Settings, Bell, User, ArrowUpRight, Play, Pause, Clock, Search, Briefcase, Users, Monitor, LayoutDashboard, CheckCircle2, ChevronDown, MoreVertical, Activity, Droplet, Moon } from "lucide-react";
 import { nanoid } from "nanoid";
+import { cn } from "@/lib/utils";
 import { DynamicDashboard } from "@/components/dynamic-dashboard";
 
 export default function Page() {
@@ -15,7 +16,7 @@ export default function Page() {
                 <header className="flex justify-between items-center mb-8 px-4">
                     <div className="flex items-center gap-2">
                         <div className="bg-white border rounded-full px-5 py-2 text-xl font-semibold shadow-sm">
-                            Crextio
+                            Aether
                         </div>
                     </div>
                     
@@ -73,26 +74,55 @@ export default function Page() {
                         </div>
                     </div>
 
-                    <div className="flex gap-12 bg-white/40 p-6 rounded-[2rem] border border-white/50 backdrop-blur-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-zinc-100 p-2 rounded-full"><Users className="w-5 h-5" /></div>
-                            <div>
-                                <div className="text-5xl font-light">78</div>
-                                <div className="text-sm font-medium text-zinc-600">Employee</div>
+                    <div className="flex gap-8 bg-white/40 p-4 lg:p-6 rounded-[2rem] border border-white/50 backdrop-blur-md shadow-sm relative overflow-hidden group">
+                        {/* Shimmer effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/40 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+                        
+                        <div className="flex flex-col justify-center gap-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="bg-orange-500/20 text-orange-600 p-1.5 rounded-xl"><Activity className="w-4 h-4" /></div>
+                                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Steps</span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-semibold tracking-tighter text-zinc-900">8,432</span>
+                            </div>
+                            <div className="w-full bg-zinc-200/60 h-2 rounded-full overflow-hidden mt-1 backdrop-blur-sm">
+                                <div className="bg-orange-500 h-full rounded-full w-[84%] relative">
+                                    <div className="absolute inset-0 bg-white/20 w-full h-full" />
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="bg-zinc-100 p-2 rounded-full"><Briefcase className="w-5 h-5" /></div>
-                            <div>
-                                <div className="text-5xl font-light">56</div>
-                                <div className="text-sm font-medium text-zinc-600">Hirings</div>
+
+                        <div className="w-px bg-gradient-to-b from-transparent via-zinc-300 to-transparent opacity-60" />
+
+                        <div className="flex flex-col justify-center gap-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="bg-blue-500/20 text-blue-600 p-1.5 rounded-xl"><Droplet className="w-4 h-4 fill-blue-500/20" /></div>
+                                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Water</span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-semibold tracking-tighter text-zinc-900">4</span>
+                                <span className="text-lg font-medium text-zinc-400">/8</span>
+                            </div>
+                            <div className="flex gap-1 mt-1">
+                                {[1,2,3,4,5,6,7,8].map(i => (
+                                    <div key={i} className={cn("h-2 w-3 rounded-full transition-all duration-500", i <= 4 ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-blue-500/10")} />
+                                ))}
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="bg-zinc-100 p-2 rounded-full"><LayoutDashboard className="w-5 h-5" /></div>
-                            <div>
-                                <div className="text-5xl font-light">203</div>
-                                <div className="text-sm font-medium text-zinc-600">Projects</div>
+
+                        <div className="w-px bg-gradient-to-b from-transparent via-zinc-300 to-transparent opacity-60" />
+
+                        <div className="flex flex-col justify-center gap-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="bg-indigo-500/20 text-indigo-600 p-1.5 rounded-xl"><Moon className="w-4 h-4 fill-indigo-500/20" /></div>
+                                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Sleep</span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-semibold tracking-tighter text-zinc-900">7<span className="text-xl font-medium text-zinc-500">h</span> 20<span className="text-xl font-medium text-zinc-500">m</span></span>
+                            </div>
+                            <div className="text-xs font-medium text-indigo-600 mt-1 flex items-center gap-1">
+                                <ArrowUpRight className="w-3 h-3" /> 12% better
                             </div>
                         </div>
                     </div>
