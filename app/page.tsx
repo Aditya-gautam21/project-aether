@@ -9,6 +9,8 @@ import { DynamicDashboard } from "@/components/dynamic-dashboard";
 
 export default function Page() {
     const [chatId, setChatId] = useState<string>(nanoid());
+    const [activeTab, setActiveTab] = useState("Dashboard");
+    const tabs = ["Dashboard", "Life OS", "Finance", "Habits", "Journal", "Settings"];
 
     return (
         <div className="h-screen w-screen bg-gradient-to-br from-[#EAEBED] via-[#FDFDF7] to-[#FFF1D0] text-foreground flex flex-col overflow-hidden p-4 lg:p-6 pb-0">
@@ -21,14 +23,20 @@ export default function Page() {
                     </div>
                     
                     <nav className="hidden lg:flex items-center gap-1 bg-white/70 backdrop-blur-md rounded-full p-1 shadow-sm border border-white/50">
-                        <Button variant="ghost" className="rounded-full bg-zinc-900 text-white hover:bg-zinc-800 px-6 py-2 h-auto" size="sm">Dashboard</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">People</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Hiring</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Devices</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Apps</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Salary</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Calendar</Button>
-                        <Button variant="ghost" className="rounded-full px-6 py-2 h-auto hover:bg-white/80" size="sm">Reviews</Button>
+                        {tabs.map(tab => (
+                            <Button 
+                                key={tab}
+                                variant="ghost" 
+                                onClick={() => setActiveTab(tab)}
+                                className={cn(
+                                    "rounded-full px-6 py-2 h-auto transition-all duration-300",
+                                    activeTab === tab ? "bg-zinc-900 text-white hover:bg-zinc-800" : "text-zinc-600 hover:bg-white/80 hover:text-zinc-900"
+                                )} 
+                                size="sm"
+                            >
+                                {tab}
+                            </Button>
+                        ))}
                     </nav>
 
                     <div className="flex items-center gap-3">
@@ -49,27 +57,57 @@ export default function Page() {
                     <div className="flex-1">
                         <h1 className="text-5xl font-light tracking-tight mb-8">Welcome in, Nixtio</h1>
                         
-                        <div className="flex gap-8 items-center text-sm font-medium">
-                            <div className="flex flex-col gap-2 flex-1 max-w-[200px]">
-                                <span className="text-zinc-600">Interviews</span>
-                                <div className="h-8 bg-zinc-900 rounded-full flex items-center px-4 text-white">15%</div>
-                            </div>
-                            <div className="flex flex-col gap-2 flex-1 max-w-[200px]">
-                                <span className="text-zinc-600">Hired</span>
-                                <div className="h-8 bg-primary rounded-full flex items-center px-4">15%</div>
-                            </div>
-                            <div className="flex flex-col gap-2 flex-[2]">
-                                <span className="text-zinc-600">Project time</span>
-                                <div className="h-8 rounded-full border border-zinc-200 overflow-hidden flex bg-white/50">
-                                    <div className="h-full bg-white flex items-center px-4 w-[60%] border-r relative">
-                                        60%
-                                        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgc3Ryb2tlPSIjZTllOWU5IiBzdHJva2Utd2lkdGg9IjEiPjxsaW5lIHgxPSIwIiB5MT0iMjAiIHgyPSIyMCIgeTI9IjAiLz48L2c+PC9zdmc+')] opacity-50" />
+                        <div className="flex gap-4 items-center">
+                            {/* Inner Calm */}
+                            <div className="flex flex-col gap-2 flex-1 min-w-[140px] group cursor-pointer">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-zinc-500 text-xs font-semibold tracking-wider uppercase group-hover:text-teal-600 transition-colors">Inner Calm</span>
+                                    <span className="text-teal-700 font-medium text-xs">85%</span>
+                                </div>
+                                <div className="h-2 bg-white/50 rounded-full overflow-hidden shadow-inner border border-white/40">
+                                    <div className="h-full bg-gradient-to-r from-teal-400 to-teal-500 rounded-full w-[85%] relative overflow-hidden group-hover:from-teal-300 group-hover:to-teal-400 transition-all duration-300">
+                                        <div className="absolute inset-0 bg-white/20 w-full h-full mix-blend-overlay" />
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-2 flex-1 max-w-[200px]">
-                                <span className="text-zinc-600">Output</span>
-                                <div className="h-8 rounded-full border border-zinc-300 flex items-center px-4 bg-transparent">10%</div>
+                            
+                            {/* Deep Work */}
+                            <div className="flex flex-col gap-2 flex-1 min-w-[140px] group cursor-pointer">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-zinc-500 text-xs font-semibold tracking-wider uppercase group-hover:text-purple-600 transition-colors">Deep Work</span>
+                                    <span className="text-purple-700 font-medium text-xs">4h 20m</span>
+                                </div>
+                                <div className="h-2 bg-white/50 rounded-full overflow-hidden shadow-inner border border-white/40">
+                                    <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full w-[70%] relative overflow-hidden group-hover:from-purple-400 group-hover:to-indigo-400 transition-all duration-300">
+                                        <div className="absolute inset-0 bg-white/20 w-full h-full mix-blend-overlay" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Connection */}
+                            <div className="flex flex-col gap-2 flex-1 min-w-[140px] group cursor-pointer">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-zinc-500 text-xs font-semibold tracking-wider uppercase group-hover:text-rose-500 transition-colors">Connection</span>
+                                    <span className="text-rose-600 font-medium text-xs">High</span>
+                                </div>
+                                <div className="h-2 bg-white/50 rounded-full overflow-hidden shadow-inner border border-white/40">
+                                    <div className="h-full bg-gradient-to-r from-rose-400 to-pink-500 rounded-full w-[90%] relative overflow-hidden group-hover:from-rose-300 group-hover:to-pink-400 transition-all duration-300">
+                                        <div className="absolute inset-0 bg-white/20 w-full h-full mix-blend-overlay" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Growth */}
+                            <div className="flex flex-col gap-2 flex-1 min-w-[140px] group cursor-pointer">
+                                <div className="flex justify-between items-center px-1">
+                                    <span className="text-zinc-500 text-xs font-semibold tracking-wider uppercase group-hover:text-amber-600 transition-colors">Growth</span>
+                                    <span className="text-amber-700 font-medium text-xs">+2 Skills</span>
+                                </div>
+                                <div className="h-2 bg-white/50 rounded-full overflow-hidden shadow-inner border border-white/40">
+                                    <div className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full w-[40%] relative overflow-hidden group-hover:from-amber-300 group-hover:to-orange-300 transition-all duration-300">
+                                        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9IjAuMiI+PGxpbmUgeDE9IjAiIHkxPSIyMCIgeDI9IjIwIiB5Mj0iMCIvPjwvZz48L3N2Zz4=')] opacity-50" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
