@@ -1,150 +1,159 @@
 """
-Simplified FastAPI backend with OpenAI integration
+Aether FastAPI backend: Life OS state, AI chat (streaming), conversation persistence.
 """
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional
-import openai
-import os
-from datetime import datetime
-import logging
-import json
+from pydantic import BaseModel, Field
 
-# Configure logging
+from aether_store import patch_aether_state, read_aether_state
+from chat_providers import models_catalog, stream_chat
+from conversation_store import (
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    list_conversation_meta,
+    save_conversation,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI
-app = FastAPI(title="Aether AI", version="2.0.0")
+app = FastAPI(title="Aether AI", version="3.1.0")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# OpenAI client
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Pydantic models
+DEFAULT_SYSTEM = (
+    "You are Aether, a capable AI copilot for someone's life operating system. "
+    "Be clear and concise. Use markdown when it helps. Prefer actionable, kind guidance."
+)
+
+
 class Message(BaseModel):
     role: str
     content: str
 
+
 class ChatRequest(BaseModel):
     messages: List[Message]
+    model: Optional[str] = Field(default=None)
+    system_prompt: Optional[str] = None
 
-class ChatResponse(BaseModel):
-    message: str
-    timestamp: str
 
-@app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
-    """Streaming chat endpoint compatible with Vercel AI SDK"""
-    try:
-        if not openai.api_key:
-            def generate_fallback():
-                response_text = "Hello! I'm Aether AI. OpenAI API key not configured, but I'm here to help with basic responses."
-                for char in response_text:
-                    yield f"data: {json.dumps({'content': char})}\n\n"
-                yield "data: [DONE]\n\n"
-            
-            return StreamingResponse(
-                generate_fallback(),
-                media_type="text/plain"
-            )
-        
-        # Convert messages to OpenAI format
-        openai_messages = [
-            {"role": msg.role, "content": msg.content} 
-            for msg in request.messages
-        ]
-        
-        # Add system message
-        system_message = {
-            "role": "system",
-            "content": "You are Aether, a helpful AI assistant. Be concise and helpful."
-        }
-        
-        def generate_response():
-            try:
-                # Call OpenAI with streaming
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[system_message] + openai_messages,
-                    max_tokens=1000,
-                    temperature=0.7,
-                    stream=True
-                )
-                
-                for chunk in response:
-                    if chunk.choices[0].delta.get('content'):
-                        content = chunk.choices[0].delta.content
-                        yield f"data: {json.dumps({'content': content})}\n\n"
-                
-                yield "data: [DONE]\n\n"
-                
-            except Exception as e:
-                logger.error(f"OpenAI streaming error: {e}")
-                error_msg = "I apologize, but I encountered an error. Please try again."
-                for char in error_msg:
-                    yield f"data: {json.dumps({'content': char})}\n\n"
-                yield "data: [DONE]\n\n"
-        
-        return StreamingResponse(
-            generate_response(),
-            media_type="text/plain"
-        )
-        
-    except Exception as e:
-        logger.error(f"Chat error: {e}")
-        def generate_error():
-            error_msg = "I apologize, but I encountered an error. Please try again."
-            for char in error_msg:
-                yield f"data: {json.dumps({'content': char})}\n\n"
-            yield "data: [DONE]\n\n"
-        
-        return StreamingResponse(
-            generate_error(),
-            media_type="text/plain"
-        )
+class ConversationCreate(BaseModel):
+    id: Optional[str] = None
+    title: str = "New chat"
+
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint"""
+    google_on = bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
     return {
         "status": "ok",
         "timestamp": datetime.now().isoformat(),
-        "openai_configured": bool(openai.api_key)
+        "openai_configured": bool(openai.api_key),
+        "google_configured": google_on,
     }
 
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from database import get_db
 
-@app.get("/api/dashboard/initial-state")
-async def get_dashboard_state(user_id: str, db: Session = Depends(get_db)):
-    from models import Task, Habit, FinanceBudget, SocialConnection
-    
-    tasks = db.query(Task).filter(Task.user_id == user_id).all()
-    habits = db.query(Habit).filter(Habit.user_id == user_id).all()
-    finances = db.query(FinanceBudget).filter(FinanceBudget.user_id == user_id).all()
-    social = db.query(SocialConnection).filter(SocialConnection.user_id == user_id).all()
+# --- Life OS (dashboard) ---
 
-    return {
-        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "tag": t.tag} for t in tasks],
-        "habits": [{"id": h.id, "name": h.name, "streak": h.streak_count} for h in habits],
-        "finances": [{"id": f.id, "name": f.category, "spent": f.amount_spent, "limit": f.allotted_limit, "color": "bg-[#7C63F5]"} for f in finances],
-        "social": [{"id": s.id, "name": s.person_name, "status": s.status, "action": "Ping", "actionColor": "text-[#4AE189] bg-[#4AE189]/10"} for s in social],
-    }
 
-# Remove static file serving since we're using Next.js frontend
+@app.get("/api/aether/dashboard")
+async def aether_dashboard_get():
+    return read_aether_state()
+
+
+@app.patch("/api/aether/dashboard")
+async def aether_dashboard_patch(body: Dict[str, Any]):
+    try:
+        return patch_aether_state(body)
+    except Exception as e:
+        logger.exception("patch aether failed")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+# --- Chat (OpenAI + Gemini) ---
+
+
+@app.get("/api/chat/models")
+async def chat_models():
+    return {"models": models_catalog()}
+
+
+@app.post("/api/chat")
+async def chat_endpoint(request: ChatRequest):
+    system_text = (request.system_prompt or "").strip() or DEFAULT_SYSTEM
+    messages = [{"role": m.role, "content": m.content} for m in request.messages]
+
+    def generate():
+        yield from stream_chat(
+            model=request.model,
+            system_text=system_text,
+            messages=messages,
+        )
+
+    return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
+
+
+# --- Conversations ---
+
+
+@app.get("/api/conversations")
+async def conversations_list():
+    return {"conversations": list_conversation_meta()}
+
+
+@app.post("/api/conversations")
+async def conversations_create(body: ConversationCreate):
+    conv = create_conversation(cid=body.id, title=body.title)
+    return conv
+
+
+@app.get("/api/conversations/{conversation_id}")
+async def conversations_get(conversation_id: str):
+    conv = get_conversation(conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Not found")
+    return conv
+
+
+@app.put("/api/conversations/{conversation_id}")
+async def conversations_put(conversation_id: str, body: Dict[str, Any]):
+    if body.get("id") and body["id"] != conversation_id:
+        raise HTTPException(status_code=400, detail="id mismatch")
+    body["id"] = conversation_id
+    return save_conversation(body)
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def conversations_delete(conversation_id: str):
+    if not delete_conversation(conversation_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

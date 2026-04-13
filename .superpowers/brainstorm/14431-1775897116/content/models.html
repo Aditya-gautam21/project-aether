@@ -1,0 +1,52 @@
+<h2>Section 2: Database & Domain Models</h2>
+<p class="subtitle">To support the new features, we need to expand the SQLAlchemy models in the backend</p>
+
+<div class="cards" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+  
+  <div class="card" style="border: 1px solid #ccc; padding: 12px; border-radius: 8px;">
+    <h3>Tasks (Update)</h3>
+    <ul style="font-size: 13px; color: #4b5563;">
+      <li><code>id</code> (String)</li>
+      <li><code>title</code> (String)</li>
+      <li><code>status</code> (pending/completed)</li>
+      <li><code>tag</code> (habit/finance/social) <em>- New</em></li>
+      <li><code>due_date</code> (DateTime)</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border: 1px solid #ccc; padding: 12px; border-radius: 8px;">
+    <h3>Habits</h3>
+    <ul style="font-size: 13px; color: #4b5563;">
+      <li><code>id</code> (String)</li>
+      <li><code>name</code> (String, e.g., "Journaling")</li>
+      <li><code>streak_count</code> (Integer)</li>
+      <li><code>logs</code> (JSON array of dates)</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border: 1px solid #ccc; padding: 12px; border-radius: 8px;">
+    <h3>Finance / Budgets</h3>
+    <ul style="font-size: 13px; color: #4b5563;">
+      <li><code>id</code> (String)</li>
+      <li><code>category</code> (String, e.g., "Food")</li>
+      <li><code>amount_spent</code> (Float)</li>
+      <li><code>allotted_limit</code> (Float)</li>
+      <li><code>month</code> (String)</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border: 1px solid #ccc; padding: 12px; border-radius: 8px;">
+    <h3>Social Connections</h3>
+    <ul style="font-size: 13px; color: #4b5563;">
+      <li><code>id</code> (String)</li>
+      <li><code>person_name</code> (String)</li>
+      <li><code>last_contacted</code> (DateTime)</li>
+      <li><code>status</code> (overdue/done/ping)</li>
+    </ul>
+  </div>
+
+</div>
+
+<p style="margin-top:20px; font-size:14px; color:#1f2937;">
+  Do these models cover everything you want to track based on the Aether screenshot?
+</p>

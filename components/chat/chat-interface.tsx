@@ -1,92 +1,58 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyScreen } from "./empty-screen";
 import { MessageBubble } from "./message-bubble";
 import { Send, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "@/lib/hooks";
-import { useDashboard } from "@/app/context/DashboardContext";
 import { nanoid } from "nanoid";
+import { streamChat, type Message as ApiMessage } from "@/lib/api";
 
 export function ChatInterface({ id }: { id: string }) {
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<{ id: string; role: string; content: string }[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const wsRef = useRef<WebSocket | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const [history, setHistory] = useLocalStorage<any[]>("chat-history", []);
-    const { updateDashboardState } = useDashboard();
 
-    // Configure WebSocket
-    useEffect(() => {
-        // Use a generic test_user for MVP
-        const ws = new WebSocket("ws://localhost:8000/ws/test_user");
-        wsRef.current = ws;
-
-        ws.onopen = () => console.log("Connected to Aether Backend");
-        
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === "dashboard_sync") {
-                    // Update React Context!
-                    updateDashboardState(data.data);
-                    setIsLoading(false);
-                } 
-                else if (data.type === "chat_message") {
-                    setMessages((prev) => [...prev, {
-                        id: nanoid(),
-                        role: data.role || "assistant",
-                        content: data.content
-                    }]);
-                    setIsLoading(false);
-                }
-                else if (data.type === "typing") {
-                    setIsLoading(data.is_typing);
-                }
-                else if (data.type === "error") {
-                    setMessages((prev) => [...prev, {
-                        id: nanoid(),
-                        role: "assistant",
-                        content: `Error: ${data.message}`
-                    }]);
-                    setIsLoading(false);
-                }
-            } catch (e) {
-                console.error("Failed to parse WS message", e);
-            }
-        };
-
-        ws.onclose = () => console.log("Disconnected from Aether Backend");
-
-        return () => ws.close();
-    }, [updateDashboardState]);
-
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || !wsRef.current) return;
+        const text = input.trim();
+        if (!text || isLoading) return;
 
-        const outgoing = { id: nanoid(), role: "user", content: input };
-        setMessages((prev) => [...prev, outgoing]);
-        
-        wsRef.current.send(JSON.stringify({
-            type: "chat_message",
-            content: input
-        }));
-        
+        const userId = nanoid();
+        const assistantId = nanoid();
+        const withUser = [...messages, { id: userId, role: "user", content: text }];
+        setMessages([...withUser, { id: assistantId, role: "assistant", content: "" }]);
         setInput("");
         setIsLoading(true);
+
+        const apiMessages: ApiMessage[] = withUser
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+        try {
+            let acc = "";
+            for await (const chunk of streamChat(apiMessages)) {
+                acc += chunk;
+                setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m)));
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Request failed";
+            setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: `**Error:** ${msg}` } : m)),
+            );
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Save to history when messages change
     useEffect(() => {
         if (messages.length > 0) {
-            const title = messages[0].content.substring(0, 30) + "...";
+            const title = messages[0].content.substring(0, 30) + (messages[0].content.length > 30 ? "..." : "");
             setHistory((prev: any[]) => {
                 const existing = prev.findIndex((h: any) => h.id === id);
                 if (existing >= 0) {
@@ -99,16 +65,12 @@ export function ChatInterface({ id }: { id: string }) {
         }
     }, [messages, id, setHistory]);
 
-    // Auto scroll securely
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollIntoView({ behavior: "smooth" });
-        }
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, isLoading]);
 
     return (
         <div className="flex flex-col h-full w-full">
-            {/* Messages */}
             <div className="flex-1 overflow-hidden p-6 relative">
                 {messages.length === 0 ? (
                     <EmptyScreen setInput={setInput} />
@@ -130,7 +92,6 @@ export function ChatInterface({ id }: { id: string }) {
                 )}
             </div>
 
-            {/* Input */}
             <div className="p-4 bg-card/80 backdrop-blur-sm border-t border-border/40">
                 <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto">
                     <Input

@@ -2,17 +2,8 @@
 
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { 
-    ChatbotWidget,
-    ProfileWidget,
-    WidgetDragHandle
-} from "./dashboard-widgets";
-import {
-    TasksWidget,
-    HabitsWidget,
-    FinanceWidget,
-    SocialWidget
-} from "./aether-widgets";
+import { ChatbotWidget, ProfileWidget, WidgetDragHandle } from "./dashboard-widgets";
+import { TasksWidget, HabitsWidget, FinanceWidget, SocialWidget } from "./aether-widgets";
 
 const WIDGETS: Record<string, React.FC<any>> = {
     tasks: TasksWidget,
@@ -20,14 +11,14 @@ const WIDGETS: Record<string, React.FC<any>> = {
     finance: FinanceWidget,
     social: SocialWidget,
     chatbot: ChatbotWidget,
-    profile: ProfileWidget // fallback
+    profile: ProfileWidget,
 };
 
 export function DynamicDashboard({ chatId }: { chatId: string }) {
     const [columns, setColumns] = useState({
         left: ["tasks", "finance"],
         middle: ["habits", "social"],
-        right: ["chatbot"]
+        right: ["chatbot"],
     });
 
     const onDragEnd = (result: DropResult) => {
@@ -39,7 +30,10 @@ export function DynamicDashboard({ chatId }: { chatId: string }) {
         }
 
         const sourceCol = [...columns[source.droppableId as keyof typeof columns]];
-        const destCol = source.droppableId === destination.droppableId ? sourceCol : [...columns[destination.droppableId as keyof typeof columns]];
+        const destCol =
+            source.droppableId === destination.droppableId
+                ? sourceCol
+                : [...columns[destination.droppableId as keyof typeof columns]];
 
         const [moved] = sourceCol.splice(source.index, 1);
         destCol.splice(destination.index, 0, moved);
@@ -47,97 +41,95 @@ export function DynamicDashboard({ chatId }: { chatId: string }) {
         setColumns({
             ...columns,
             [source.droppableId]: sourceCol,
-            [destination.droppableId]: destCol
+            [destination.droppableId]: destCol,
         });
     };
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar min-h-0 relative">
-                <div className="min-w-[700px] xl:min-w-0 grid grid-cols-12 gap-4 lg:gap-6 px-2 lg:px-4 pb-4 h-full">
-                    
-                    {/* Left Column (col-3) */}
+            <div className="relative w-full overflow-x-auto pb-6 custom-scrollbar">
+                <div className="grid min-w-[700px] grid-cols-12 items-start gap-4 px-2 lg:min-w-0 lg:gap-6 lg:px-4">
                     <Droppable droppableId="left">
                         {(provided) => (
-                            <div 
-                                {...provided.droppableProps} 
+                            <div
+                                {...provided.droppableProps}
                                 ref={provided.innerRef}
-                                className="col-span-4 xl:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2 min-h-0 h-full p-2"
+                                className="col-span-4 flex flex-col gap-4 p-2 xl:col-span-3"
                             >
                                 {columns.left.map((id, index) => {
                                     const Component = WIDGETS[id];
                                     return (
                                         <Draggable key={id} draggableId={id} index={index}>
-                                            {(provided) => (
-                                                <div 
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className="relative group w-full"
+                                            {(p) => (
+                                                <div
+                                                    ref={p.innerRef}
+                                                    {...p.draggableProps}
+                                                    className="group relative w-full"
                                                 >
-                                                    <WidgetDragHandle dragHandleProps={provided.dragHandleProps} />
-                                                    <Component chatId={chatId} />
+                                                    <WidgetDragHandle dragHandleProps={p.dragHandleProps} />
+                                                    {id === "chatbot" ? <Component chatId={chatId} /> : <Component />}
                                                 </div>
                                             )}
                                         </Draggable>
-                                    )
+                                    );
                                 })}
                                 {provided.placeholder}
                             </div>
                         )}
                     </Droppable>
 
-                    {/* Middle Column (col-5) */}
                     <Droppable droppableId="middle">
                         {(provided) => (
-                            <div 
-                                {...provided.droppableProps} 
-                                className="col-span-8 xl:col-span-5 flex flex-col gap-4 lg:gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 h-full p-2"
+                            <div
+                                {...provided.droppableProps}
+                                ref={provided.innerRef}
+                                className="col-span-8 flex flex-col gap-4 p-2 lg:gap-6 xl:col-span-5"
                             >
                                 {columns.middle.map((id, index) => {
                                     const Component = WIDGETS[id];
                                     return (
                                         <Draggable key={id} draggableId={id} index={index}>
-                                            {(provided) => (
-                                                <div 
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className="relative group w-full"
+                                            {(p) => (
+                                                <div
+                                                    ref={p.innerRef}
+                                                    {...p.draggableProps}
+                                                    className="group relative w-full"
                                                 >
-                                                    <WidgetDragHandle dragHandleProps={provided.dragHandleProps} />
-                                                    <Component chatId={chatId} />
+                                                    <WidgetDragHandle dragHandleProps={p.dragHandleProps} />
+                                                    {id === "chatbot" ? <Component chatId={chatId} /> : <Component />}
                                                 </div>
                                             )}
                                         </Draggable>
-                                    )
+                                    );
                                 })}
                                 {provided.placeholder}
                             </div>
                         )}
                     </Droppable>
 
-                    {/* Right Column (col-4) */}
                     <Droppable droppableId="right">
                         {(provided) => (
-                            <div 
-                                {...provided.droppableProps} 
-                                className="col-span-12 xl:col-span-4 flex flex-col gap-4 lg:gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 h-full p-2"
+                            <div
+                                {...provided.droppableProps}
+                                ref={provided.innerRef}
+                                className="col-span-12 flex flex-col gap-4 p-2 lg:gap-6 xl:col-span-4"
                             >
                                 {columns.right.map((id, index) => {
                                     const Component = WIDGETS[id];
                                     return (
                                         <Draggable key={id} draggableId={id} index={index}>
-                                            {(provided) => (
-                                                <div 
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className="relative group w-full"
+                                            {(p) => (
+                                                <div
+                                                    ref={p.innerRef}
+                                                    {...p.draggableProps}
+                                                    className="group relative w-full"
                                                 >
-                                                    <WidgetDragHandle dragHandleProps={provided.dragHandleProps} />
-                                                    <Component chatId={chatId} />
+                                                    <WidgetDragHandle dragHandleProps={p.dragHandleProps} />
+                                                    {id === "chatbot" ? <Component chatId={chatId} /> : <Component />}
                                                 </div>
                                             )}
                                         </Draggable>
-                                    )
+                                    );
                                 })}
                                 {provided.placeholder}
                             </div>

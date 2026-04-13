@@ -1,5 +1,7 @@
+"use client";
+
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 
 const exampleMessages = [
     {
@@ -23,7 +25,14 @@ export function EmptyScreen({ setInput }: { setInput: (value: string) => void })
                 Hey, Need help? 👋<br/>
                 <span className="text-muted-foreground font-normal">Just ask me anything!</span>
             </h1>
-            <div className="w-full mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <p className="text-center text-sm text-muted-foreground mb-6">
+                For threads, model choice, stop / regenerate, and export, open the full{" "}
+                <Link href="/chat" className="text-primary underline-offset-4 hover:underline font-medium">
+                    Chat
+                </Link>{" "}
+                page.
+            </p>
+            <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {exampleMessages.map((message, index) => (
                     <Button
                         key={index}

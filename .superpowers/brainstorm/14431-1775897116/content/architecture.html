@@ -1,0 +1,68 @@
+<h2>Section 1: Architecture & Data Flow</h2>
+<p class="subtitle">Using Approach A (State-Synced WebSockets) to connect AI and Dashboard</p>
+
+<div class="mockup" style="padding: 20px;">
+  <div style="display: flex; gap: 20px; text-align: center;">
+    
+    <!-- Frontend -->
+    <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #f8fafc;">
+      <h3>Next.js Frontend</h3>
+      <ul style="list-style-type: none; padding: 0; font-size: 14px; text-align: left;">
+        <li>🔄 React Context for global state</li>
+        <li>🔌 Single WebSocket connection listening for:
+          <ul style="margin-top: 8px;">
+            <li><code>chat_message</code></li>
+            <li><code>dashboard_sync</code></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <div style="display: flex; align-items: center;">
+      <div style="font-size: 24px;">⟷</div>
+    </div>
+
+    <!-- Backend Connections -->
+    <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #f8fafc;">
+      <h3>FastAPI Server</h3>
+      <ul style="list-style-type: none; padding: 0; font-size: 14px; text-align: left;">
+        <li>📡 <code>ConnectionManager</code> (handles WS)</li>
+        <li>🧠 <code>AI Service</code> (processes prompts)</li>
+        <li>🛠️ <code>Tools</code> (interprets AI text into DB actions)</li>
+      </ul>
+    </div>
+
+    <div style="display: flex; align-items: center;">
+      <div style="font-size: 24px;">⟷</div>
+    </div>
+
+    <!-- Database -->
+    <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #f8fafc;">
+      <h3>Database (PostgreSQL/SQLite)</h3>
+      <ul style="list-style-type: none; padding: 0; font-size: 14px; text-align: left;">
+        <li>Stored Models:
+          <ul style="margin-top: 8px;">
+            <li><code>Tasks</code></li>
+            <li><code>Habits</code></li>
+            <li><code>Finances</code></li>
+            <li><code>Social</code></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 24px; padding: 16px; background: #eff6ff; border-radius: 8px; font-size: 14px;">
+    <strong>The Core Loop:</strong>
+    <ol style="margin-top: 8px; padding-left: 20px;">
+      <li>You type "Log gym session" in the chat.</li>
+      <li>FastAPI routes message to AI Service.</li>
+      <li>AI classifies intent and triggers the `update_habit` tool function.</li>
+      <li>Database is updated.</li>
+      <li>FastAPI immediately broadcasts <code>{"type": "dashboard_sync", "habits": [...]}</code></li>
+      <li>React auto-updates the Habit Tracker block.</li>
+    </ol>
+  </div>
+</div>
+
+<p style="margin-top: 20px;">Does this data flow architecture look good to you?</p>

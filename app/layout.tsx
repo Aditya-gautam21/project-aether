@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
+import { DashboardProvider } from "./context/DashboardContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,9 +19,11 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={cn(inter.className, "antialiased h-screen overflow-hidden")}>
-                {children}
-                <Toaster position="top-center" />
+            <body className={cn(inter.className, "flex min-h-dvh flex-col overflow-hidden")}>
+                <DashboardProvider>
+                    <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                    <Toaster position="top-center" />
+                </DashboardProvider>
             </body>
         </html>
     );
