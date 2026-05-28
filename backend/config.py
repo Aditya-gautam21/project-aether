@@ -1,7 +1,12 @@
 """Configuration management for Aether AI"""
 import os
 from typing import Optional
-from pydantic_settings import BaseSettings
+
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    from pydantic import BaseSettings  # fallback for older pydantic v2
+
 from pydantic import Field
 
 class Settings(BaseSettings):

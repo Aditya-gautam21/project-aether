@@ -15,6 +15,7 @@ import {
     Send,
     Square,
     Trash2,
+    Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,9 +26,7 @@ import { streamChat, type Message as ApiMessage } from "@/lib/api";
 import { useEnterSubmit } from "@/lib/hooks/use-enter-submit";
 
 type UiMsg = { id: string; role: "user" | "assistant" | "system"; content: string };
-
 type ConvMeta = { id: string; title: string; updatedAt: string; messageCount: number };
-
 type ChatModel = { id: string; label: string };
 
 async function fetchModels(): Promise<ChatModel[]> {
@@ -63,11 +62,7 @@ async function loadConversation(id: string) {
     return r.json() as Promise<{ id: string; title: string; messages: UiMsg[] }>;
 }
 
-async function saveConversationRemote(conv: {
-    id: string;
-    title: string;
-    messages: UiMsg[];
-}) {
+async function saveConversationRemote(conv: { id: string; title: string; messages: UiMsg[] }) {
     const r = await fetch(`/api/conversations/${encodeURIComponent(conv.id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -111,26 +106,6 @@ export function ChatWorkspace() {
         setList(rows);
     }, []);
 
-    const bootstrapConversation = useCallback(async () => {
-        const id = nanoid();
-        try {
-            await createConversation(id, "New chat");
-            await refreshList();
-            setActiveId(id);
-            setTitle("New chat");
-            titleRef.current = "New chat";
-            setMessages([]);
-        } catch {
-            toast.error("Could not reach conversation API", {
-                description: "Ensure FastAPI is running on port 8000.",
-            });
-            setActiveId(id);
-            setTitle("New chat");
-            titleRef.current = "New chat";
-            setMessages([]);
-        }
-    }, [refreshList]);
-
     useLayoutEffect(() => {
         titleRef.current = title;
     }, [title]);
@@ -144,49 +119,61 @@ export function ChatWorkspace() {
             if (m.length) {
                 setModel((prev) => (m.some((x) => x.id === prev) ? prev : m[0].id));
             }
-            await bootstrapConversation();
+            await refreshList();
         })();
-        return () => {
-            cancelled = true;
-        };
-    }, [bootstrapConversation]);
+        return () => { cancelled = true; };
+    }, [refreshList]);
 
-    const selectConversation = useCallback(
-        async (id: string) => {
-            setMobileOpen(false);
-            const remote = await loadConversation(id);
+    const ensureConversation = useCallback(async (): Promise<string | null> => {
+        if (activeId) return activeId;
+        const id = nanoid();
+        try {
+            await createConversation(id, "New chat");
+            await refreshList();
             setActiveId(id);
-            if (remote) {
-                setTitle(remote.title);
-                titleRef.current = remote.title;
-                setMessages(
-                    (remote.messages || []).map((m) => ({
-                        id: m.id || nanoid(),
-                        role: m.role as UiMsg["role"],
-                        content: m.content,
-                    })),
-                );
-            } else {
-                setTitle("New chat");
-                titleRef.current = "New chat";
-                setMessages([]);
-            }
-        },
-        [],
-    );
-
-    const persist = useCallback(
-        async (nextMessages: UiMsg[], nextTitle: string) => {
-            if (!activeId) return;
-            const ok = await saveConversationRemote({
-                id: activeId,
-                title: nextTitle,
-                messages: nextMessages,
+            setTitle("New chat");
+            titleRef.current = "New chat";
+            setMessages([]);
+            return id;
+        } catch {
+            toast.error("Could not reach conversation API", {
+                description: "Ensure FastAPI is running on port 8000.",
             });
-            if (ok) void refreshList();
-        },
-        [activeId, refreshList],
-    );
+            return null;
+        }
+    }, [activeId, refreshList]);
+
+    const selectConversation = useCallback(async (id: string) => {
+        setMobileOpen(false);
+        const remote = await loadConversation(id);
+        setActiveId(id);
+        if (remote) {
+            setTitle(remote.title);
+            titleRef.current = remote.title;
+            setMessages(
+                (remote.messages || []).map((m) => ({
+                    id: m.id || nanoid(),
+                    role: m.role as UiMsg["role"],
+                    content: m.content,
+                })),
+            );
+        } else {
+            setTitle("New chat");
+            titleRef.current = "New chat";
+            setMessages([]);
+        }
+    }, []);
+
+    const persist = useCallback(async (nextMessages: UiMsg[], nextTitle: string) => {
+        if (!activeId) return;
+        // Don't persist empty conversations
+        const hasContent = nextMessages.some((m) => m.role === "user" && m.content.trim());
+        if (!hasContent) return;
+        const ok = await saveConversationRemote({
+            id: activeId, title: nextTitle, messages: nextMessages,
+        });
+        if (ok) void refreshList();
+    }, [activeId, refreshList]);
 
     const stop = () => {
         abortRef.current?.abort();
@@ -194,55 +181,50 @@ export function ChatWorkspace() {
         setStreaming(false);
     };
 
-    const runAssistant = useCallback(
-        async (historyForModel: UiMsg[], assistantId: string) => {
-            const ctrl = new AbortController();
-            abortRef.current = ctrl;
-            setStreaming(true);
-            const apiMsgs = toApiMessages(historyForModel.filter((m) => m.id !== assistantId));
-            try {
-                let acc = "";
-                for await (const chunk of streamChat(apiMsgs, {
-                    signal: ctrl.signal,
-                    model,
-                    systemPrompt: systemPrompt || null,
-                })) {
-                    acc += chunk;
-                    setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m)));
-                }
-                const finalMsgs = historyForModel.map((m) =>
-                    m.id === assistantId ? { ...m, content: acc } : m,
-                );
-                const suggested = nextTitleFromMessages(finalMsgs);
-                const newTitle = suggested || titleRef.current;
-                titleRef.current = newTitle;
-                setTitle(newTitle);
-                await persist(finalMsgs, newTitle);
-            } catch (e) {
-                if ((e as Error).name === "AbortError") {
-                    toast.message("Generation stopped");
-                } else {
-                    toast.error((e as Error).message || "Chat failed");
-                }
-            } finally {
-                abortRef.current = null;
-                setStreaming(false);
+    const runAssistant = useCallback(async (historyForModel: UiMsg[], assistantId: string) => {
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
+        setStreaming(true);
+        const apiMsgs = toApiMessages(historyForModel.filter((m) => m.id !== assistantId));
+        try {
+            let acc = "";
+            for await (const chunk of streamChat(apiMsgs, {
+                signal: ctrl.signal, model, systemPrompt: systemPrompt || null,
+            })) {
+                acc += chunk;
+                setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m)));
             }
-        },
-        [model, persist, systemPrompt],
-    );
-
-    function nextTitleFromMessages(msgs: UiMsg[]): string | null {
-        const first = msgs.find((m) => m.role === "user" && m.content.trim());
-        if (!first) return null;
-        const t = first.content.trim().replace(/\s+/g, " ");
-        return t.length > 56 ? `${t.slice(0, 53)}…` : t;
-    }
+            const finalMsgs = historyForModel.map((m) =>
+                m.id === assistantId ? { ...m, content: acc } : m,
+            );
+            const first = finalMsgs.find((m) => m.role === "user" && m.content.trim());
+            const suggested = first
+                ? first.content.trim().replace(/\s+/g, " ").slice(0, 53) + (first.content.trim().length > 53 ? "…" : "")
+                : null;
+            const newTitle = suggested || titleRef.current;
+            titleRef.current = newTitle;
+            setTitle(newTitle);
+            await persist(finalMsgs, newTitle);
+        } catch (e) {
+            if ((e as Error).name === "AbortError") {
+                toast.message("Generation stopped");
+            } else {
+                toast.error((e as Error).message || "Chat failed");
+            }
+        } finally {
+            abortRef.current = null;
+            setStreaming(false);
+        }
+    }, [model, persist, systemPrompt]);
 
     const submitUser = async (e: React.FormEvent) => {
         e.preventDefault();
         const text = input.trim();
-        if (!text || streaming || !activeId) return;
+        if (!text || streaming) return;
+
+        // Create conversation on first message if none active
+        const cid = await ensureConversation();
+        if (!cid) return;
 
         const userMsg: UiMsg = { id: nanoid(), role: "user", content: text };
         const assistantId = nanoid();
@@ -251,12 +233,12 @@ export function ChatWorkspace() {
         setMessages(next);
         setInput("");
 
-        const derived = nextTitleFromMessages(next);
+        const derived = next.find((m) => m.role === "user" && m.content.trim());
         if (derived && (titleRef.current === "New chat" || titleRef.current.length < 4)) {
-            titleRef.current = derived;
-            setTitle(derived);
+            const suggested = derived.content.trim().slice(0, 53);
+            titleRef.current = suggested;
+            setTitle(suggested);
         }
-
         await runAssistant(next, assistantId);
     };
 
@@ -264,7 +246,6 @@ export function ChatWorkspace() {
         if (streaming || messages.length < 2) return;
         const last = messages[messages.length - 1];
         if (last.role !== "assistant") return;
-
         const withoutLast = messages.slice(0, -1);
         const assistantId = nanoid();
         const placeholder: UiMsg = { id: assistantId, role: "assistant", content: "" };
@@ -279,15 +260,11 @@ export function ChatWorkspace() {
         try {
             await navigator.clipboard.writeText(last.content);
             toast.success("Copied to clipboard");
-        } catch {
-            toast.error("Could not copy");
-        }
+        } catch { toast.error("Could not copy"); }
     };
 
     const exportChat = () => {
-        const blob = new Blob([JSON.stringify({ id: activeId, title, messages }, null, 2)], {
-            type: "application/json",
-        });
+        const blob = new Blob([JSON.stringify({ id: activeId, title, messages }, null, 2)], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = `aether-chat-${activeId?.slice(0, 8) || "export"}.json`;
@@ -296,30 +273,36 @@ export function ChatWorkspace() {
         toast.success("Download started");
     };
 
-    const onNewChat = async () => {
+    const onNewChat = () => {
         stop();
         setInput("");
-        await bootstrapConversation();
+        setActiveId(null);
+        setTitle("New chat");
+        titleRef.current = "New chat";
+        setMessages([]);
     };
-
     const onDeleteChat = async () => {
         if (!activeId) return;
         stop();
-        if (list.some((c) => c.id === activeId)) {
+        const existsRemotely = list.some((c) => c.id === activeId);
+        if (existsRemotely) {
             await deleteConversationRemote(activeId);
             await refreshList();
         }
-        await bootstrapConversation();
+        setActiveId(null);
+        setTitle("New chat");
+        titleRef.current = "New chat";
+        setMessages([]);
     };
 
     const Sidebar = (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-zinc-900 text-zinc-100">
-            <div className="p-3 border-b border-white/10 flex items-center gap-2">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/60 backdrop-blur">
+            <div className="p-3 border-b border-zinc-100">
                 <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="flex-1 justify-start gap-2 rounded-full text-white hover:bg-white/10"
+                    className="w-full justify-start gap-2 rounded-xl text-zinc-700 hover:bg-violet-50 hover:text-violet-600"
                     onClick={() => void onNewChat()}
                 >
                     <MessageSquarePlus className="w-4 h-4" />
@@ -334,67 +317,68 @@ export function ChatWorkspace() {
                             type="button"
                             onClick={() => void selectConversation(c.id)}
                             className={cn(
-                                "w-full text-left rounded-2xl px-3 py-2.5 text-sm transition-colors",
-                                c.id === activeId ? "bg-white/15 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
+                                "w-full text-left rounded-xl px-3 py-2.5 text-sm transition-all",
+                                c.id === activeId
+                                    ? "bg-violet-50 text-violet-700 border border-violet-100"
+                                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800 border border-transparent",
                             )}
                         >
                             <div className="truncate font-medium">{c.title}</div>
-                            <div className="text-[10px] text-zinc-500 mt-0.5">{c.messageCount} messages</div>
+                            <div className="text-[10px] text-zinc-400 mt-0.5">{c.messageCount} messages</div>
                         </button>
                     ))}
+                    {list.length === 0 && (
+                        <p className="px-3 py-8 text-center text-xs text-zinc-400">No conversations yet</p>
+                    )}
                 </div>
             </ScrollArea>
         </div>
     );
 
     return (
-        <div className="flex flex-1 min-h-0 gap-3 lg:gap-4 px-1 lg:px-2 pb-4">
-            {/* Desktop sidebar */}
+        <div className="flex flex-1 min-h-0 gap-3 lg:gap-4 pb-4">
             {sidebarOpen && (
                 <div className="hidden md:flex w-[260px] shrink-0 flex-col min-h-0">{Sidebar}</div>
             )}
 
-            <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 rounded-[2rem] border-4 border-zinc-900 shadow-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-zinc-900 shrink-0 flex-wrap">
+            <div className="flex-1 flex flex-col min-h-0 bg-white/60 backdrop-blur rounded-2xl border border-zinc-200/60 shadow-sm overflow-hidden">
+                {/* toolbar */}
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-zinc-100 bg-white/80 shrink-0 flex-wrap">
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="md:hidden text-white hover:bg-white/10 rounded-full"
+                        className="md:hidden text-zinc-500 hover:text-zinc-800 rounded-lg"
                         onClick={() => setMobileOpen(true)}
                     >
-                        <Menu className="w-5 h-5" />
+                        <Menu className="w-4 h-4" />
                     </Button>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="hidden md:inline-flex text-white hover:bg-white/10 rounded-full"
+                        className="hidden md:inline-flex text-zinc-500 hover:text-zinc-800 rounded-lg"
                         onClick={() => setSidebarOpen((v) => !v)}
                         aria-label="Toggle sidebar"
                     >
-                        {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
+                        {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
                     </Button>
 
-                    <div className="flex-1 min-w-[120px]">
-                        <select
-                            value={model}
-                            onChange={(e) => setModel(e.target.value)}
-                            className="w-full max-w-[220px] rounded-full border border-white/10 bg-zinc-800 px-3 py-2 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
-                        >
-                            {models.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                    {m.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <select
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-violet-500/20"
+                    >
+                        {models.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                        ))}
+                    </select>
 
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="text-zinc-300 hover:text-white hover:bg-white/10 rounded-full"
+                        className="text-xs text-zinc-500 hover:text-zinc-800 rounded-lg"
                         onClick={() => setShowSystem((s) => !s)}
                     >
                         Instructions
@@ -405,129 +389,108 @@ export function ChatWorkspace() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="rounded-full border-red-400/50 text-red-200 hover:bg-red-950/50"
+                            className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 text-xs"
                             onClick={stop}
                         >
-                            <Square className="w-3 h-3 mr-1 fill-current" />
-                            Stop
+                            <Square className="w-3 h-3 mr-1 fill-current" /> Stop
                         </Button>
                     ) : (
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="text-zinc-300 hover:text-white rounded-full"
+                            className="text-xs text-zinc-500 hover:text-zinc-800 rounded-lg"
                             onClick={() => void regenerate()}
                             disabled={messages.length < 2}
                         >
-                            <RefreshCw className="w-4 h-4 mr-1" />
-                            Regenerate
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
                         </Button>
                     )}
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-zinc-300 hover:text-white rounded-full"
-                        onClick={() => void copyLastAssistant()}
-                    >
-                        <Copy className="w-4 h-4" />
+                    <div className="flex-1" />
+
+                    <Button type="button" variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 rounded-lg disabled:opacity-30" onClick={() => void copyLastAssistant()} disabled={!activeId || messages.length === 0}>
+                        <Copy className="w-3.5 h-3.5" />
                     </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-zinc-300 hover:text-white rounded-full"
-                        onClick={exportChat}
-                    >
-                        <Download className="w-4 h-4" />
+                    <Button type="button" variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-600 rounded-lg disabled:opacity-30" onClick={exportChat} disabled={!activeId || messages.length === 0}>
+                        <Download className="w-3.5 h-3.5" />
                     </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-zinc-300 hover:text-red-300 rounded-full"
-                        onClick={() => void onDeleteChat()}
-                    >
-                        <Trash2 className="w-4 h-4" />
+                    <Button type="button" variant="ghost" size="icon" className="text-zinc-400 hover:text-rose-500 rounded-lg disabled:opacity-30" onClick={() => void onDeleteChat()} disabled={!activeId}>
+                        <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                 </div>
 
                 {showSystem && (
-                    <div className="px-4 py-2 bg-zinc-950/80 border-b border-white/10 shrink-0">
-                        <label className="text-[10px] uppercase tracking-wider text-zinc-500 block mb-1">
-                            Custom system instructions (optional)
+                    <div className="px-4 py-3 bg-violet-50/50 border-b border-zinc-100 shrink-0">
+                        <label className="text-[10px] uppercase tracking-wider text-zinc-500 block mb-1.5 font-semibold">
+                            Custom system instructions
                         </label>
                         <textarea
                             value={systemPrompt}
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             rows={2}
                             placeholder="e.g. Keep answers under 5 sentences; prefer bullet lists."
-                            className="w-full rounded-xl bg-zinc-900 border border-white/10 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 resize-y min-h-[52px]"
+                            className="w-full rounded-xl bg-white border border-zinc-200 px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-400 resize-y min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/20"
                         />
                     </div>
                 )}
 
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                    <SheetContent
-                        side="left"
-                        className="flex h-[100dvh] max-h-[100dvh] w-[min(100vw,280px)] flex-col border-zinc-800 bg-zinc-950 p-0"
-                    >
-                        <SheetHeader className="shrink-0 border-b border-zinc-800 p-4">
-                            <SheetTitle className="text-left text-base font-medium text-white">Conversations</SheetTitle>
+                    <SheetContent side="left" className="flex h-[100dvh] max-h-[100dvh] w-[min(100vw,280px)] flex-col border-zinc-200 bg-white p-0">
+                        <SheetHeader className="shrink-0 border-b border-zinc-100 p-4">
+                            <SheetTitle className="text-left text-base font-medium text-zinc-800">Conversations</SheetTitle>
                         </SheetHeader>
                         <div className="min-h-0 flex-1 overflow-hidden p-2">{Sidebar}</div>
                     </SheetContent>
                 </Sheet>
 
-                <div className="flex-1 min-h-0 bg-zinc-50 rounded-b-[1.75rem] m-2 mt-0 mb-2 flex flex-col overflow-hidden">
-                    <ScrollArea className="flex-1 min-h-0 p-4">
-                        <div className="flex flex-col gap-4 max-w-3xl mx-auto pb-8">
-                            {messages.length === 0 && (
-                                <p className="text-center text-zinc-500 text-sm py-12">
-                                    Ask anything — answers stream like ChatGPT. Use the sidebar for multiple threads,
-                                    stop generation anytime, or regenerate the last reply.
-                                </p>
-                            )}
-                            {messages.map((m) => (
-                                <MessageBubble key={m.id} role={m.role} content={m.content} />
-                            ))}
-                            {streaming && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
-                                <div className="flex gap-2 items-center text-zinc-500 text-sm pl-4">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Thinking…
+                {/* messages area */}
+                <ScrollArea className="flex-1 min-h-0 p-4 lg:p-6">
+                    <div className="flex flex-col gap-4 max-w-3xl mx-auto pb-8">
+                        {messages.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center">
+                                    <Sparkles className="w-6 h-6 text-violet-500" />
                                 </div>
-                            )}
-                        </div>
-                    </ScrollArea>
+                                <p className="text-sm text-zinc-500 max-w-xs">
+                                    Ask anything. Use the sidebar for multiple threads, stop generation anytime.
+                                </p>
+                            </div>
+                        )}
+                        {messages.map((m) => (
+                            <MessageBubble key={m.id} role={m.role} content={m.content} />
+                        ))}
+                        {streaming && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
+                            <div className="flex gap-2 items-center text-zinc-400 text-sm pl-4">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Thinking…
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
 
-                    <form
-                        ref={formRef}
-                        onSubmit={submitUser}
-                        className="p-3 border-t border-zinc-200/80 bg-white/90 backdrop-blur-sm"
-                    >
-                        <div className="max-w-3xl mx-auto relative">
-                            <textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={onKeyDown}
-                                placeholder="Message Aether… (Enter to send, Shift+Enter for newline)"
-                                rows={2}
-                                disabled={streaming}
-                                className="w-full rounded-2xl border border-zinc-200 bg-white pl-4 pr-14 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/10 resize-none min-h-[52px] max-h-40"
-                            />
-                            <Button
-                                type="submit"
-                                size="icon"
-                                className="absolute right-2 bottom-2 rounded-full h-9 w-9"
-                                disabled={streaming || !input.trim()}
-                            >
-                                <Send className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </form>
-                </div>
+                {/* input */}
+                <form ref={formRef} onSubmit={submitUser} className="p-3 border-t border-zinc-100 bg-white/60 backdrop-blur">
+                    <div className="max-w-3xl mx-auto relative">
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={onKeyDown}
+                            placeholder="Message Aether… (Enter to send, Shift+Enter for newline)"
+                            rows={2}
+                            disabled={streaming}
+                            className="w-full rounded-2xl border border-zinc-200 bg-white pl-4 pr-12 py-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/20 focus-visible:border-violet-400 resize-none min-h-[52px] max-h-40 transition-all"
+                        />
+                        <Button
+                            type="submit"
+                            size="icon"
+                            className="absolute right-2 bottom-2 rounded-xl h-9 w-9 bg-violet-500 hover:bg-violet-600 text-white shadow-sm transition-all active:scale-95"
+                            disabled={streaming || !input.trim()}
+                        >
+                            <Send className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                </form>
             </div>
         </div>
     );

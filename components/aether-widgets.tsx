@@ -47,28 +47,64 @@ export const TasksWidget = () => {
     );
 };
 
+function daysAgoISO(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().split("T")[0];
+}
+
 export const HabitsWidget = () => {
     const { state } = useDashboard();
+    const today = new Date().toISOString().split("T")[0];
+    const weekDays = Array.from({ length: 7 }, (_, i) => daysAgoISO(6 - i));
+    const dayLabels = ["M", "T", "W", "T", "F", "S", "S"];
+
     return (
         <div className="bg-[#171717] p-5 rounded-2xl border border-white/5 text-white flex flex-col gap-4 min-h-[280px]">
             <div className="flex justify-between items-center text-sm font-medium">
                 <h3 className="text-gray-400">Habits</h3>
-                <span className="text-xs bg-[#C29623]/20 text-[#E7B846] px-3 py-1 rounded-full">This week</span>
+                <span className="text-xs bg-[#C29623]/20 text-[#E7B846] px-3 py-1 rounded-full">Today</span>
             </div>
             <div className="flex flex-col gap-4 mt-2">
-                {state.habits.map((h) => (
-                    <div key={h.id} className="flex justify-between items-center gap-2">
-                        <span className="text-sm text-gray-300 truncate">{h.name}</span>
-                        <div className="flex gap-1.5 shrink-0">
-                            {[...Array(7)].map((_, j) => (
-                                <div
-                                    key={j}
-                                    className={`w-2.5 h-2.5 rounded-full ${j < h.streak ? (j === h.streak - 1 ? "bg-[#4AE189]" : "bg-[#7C63F5]") : "bg-gray-800"}`}
-                                />
-                            ))}
+                {state.habits.length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-8">No habits yet</p>
+                )}
+                {state.habits.map((h) => {
+                    const logs = h.logs || [];
+                    const checkedIn = logs.includes(today);
+                    const streak = h.streak || 0;
+                    return (
+                        <div key={h.id} className="flex justify-between items-center gap-2">
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-sm text-gray-300 truncate">{h.name}</span>
+                                <span className="text-[10px] text-gray-500">
+                                    {streak > 0 ? `${streak}d streak` : "Start today"}
+                                </span>
+                            </div>
+                            <div className="flex gap-1 shrink-0 items-center">
+                                {weekDays.map((d, j) => {
+                                    const filled = logs.includes(d);
+                                    const isToday = d === today;
+                                    return (
+                                        <div
+                                            key={j}
+                                            className={`w-2.5 h-2.5 rounded-full ${
+                                                filled
+                                                    ? isToday
+                                                        ? "bg-[#4AE189]"
+                                                        : "bg-[#7C63F5]"
+                                                    : isToday && !checkedIn
+                                                        ? "bg-gray-700 ring-1 ring-gray-500"
+                                                        : "bg-gray-800"
+                                            }`}
+                                            title={`${dayLabels[j]}: ${d}${filled ? " ✓" : ""}`}
+                                        />
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

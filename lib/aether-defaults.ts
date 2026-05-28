@@ -1,44 +1,59 @@
 import type { AetherState } from "./aether-types";
 
+function isoDate(daysAgo: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().split("T")[0];
+}
+
 export const DEFAULT_AETHER_STATE: AetherState = {
     tasks: [
-        { id: "t1", title: "Morning journal entry", status: "completed", tag: "habit" },
+        { id: "t1", title: "Set up your first habit", status: "pending", tag: "habit" },
         { id: "t2", title: "Review monthly budget", status: "completed", tag: "finance" },
-        { id: "t3", title: "Reach out to Vansh", status: "pending", tag: "social" },
-        { id: "t4", title: "Read for 20 min", status: "pending", tag: "habit" },
+        { id: "t3", title: "Reach out to a friend", status: "pending", tag: "social" },
     ],
     habits: [
-        { id: "h1", name: "Journaling", streak: 5 },
-        { id: "h2", name: "Emotion labeling", streak: 4 },
-        { id: "h3", name: "Reading", streak: 5 },
-        { id: "h4", name: "Gym", streak: 4 },
+        {
+            id: "h1",
+            name: "Morning journal",
+            streak: 3,
+            logs: [isoDate(0), isoDate(1), isoDate(2)],
+            longestStreak: 5,
+        },
+        {
+            id: "h2",
+            name: "Exercise",
+            streak: 2,
+            logs: [isoDate(0), isoDate(1)],
+            longestStreak: 4,
+        },
+        {
+            id: "h3",
+            name: "Reading",
+            streak: 5,
+            logs: [isoDate(0), isoDate(1), isoDate(2), isoDate(3), isoDate(4)],
+            longestStreak: 7,
+        },
     ],
     finances: [
-        { id: "f1", name: "Food", spent: 3600, limit: 5000, color: "bg-[#7C63F5]" },
-        { id: "f2", name: "Eating out", spent: 4800, limit: 4000, color: "bg-[#F25A5A]" },
-        { id: "f3", name: "Savings", spent: 8000, limit: 10000, color: "bg-[#4AE189]" },
+        { id: "f1", name: "Food", spent: 3200, limit: 5000, color: "bg-gradient-to-r from-violet-400 to-violet-500" },
+        { id: "f2", name: "Eating out", spent: 4800, limit: 4000, color: "bg-gradient-to-r from-rose-400 to-rose-500" },
+        { id: "f3", name: "Savings", spent: 8000, limit: 10000, color: "bg-gradient-to-r from-emerald-400 to-emerald-500" },
     ],
     social: [
         {
             id: "s1",
-            name: "Vansh",
+            name: "Friend",
             status: "Talked 3 days ago",
             action: "Ping",
             actionColor: "text-[#4AE189] bg-[#4AE189]/10",
-        },
-        {
-            id: "s2",
-            name: "Shreya",
-            status: "2 weeks ago — overdue",
-            action: "Overdue",
-            actionColor: "text-[#F25A5A] bg-[#F25A5A]/10",
         },
     ],
     journalEntries: [
         {
             id: "j1",
-            title: "Energy check-in",
-            body: "Noticed I focus best after a short walk. Scheduling one before deep work tomorrow.",
+            title: "Welcome to Aether",
+            body: "Today I set up my Life OS. Excited to build better habits and track what matters.",
             createdAt: new Date().toISOString(),
         },
     ],

@@ -1,51 +1,40 @@
-# Multi-stage Dockerfile for Aether AI
-FROM node:18-alpine AS frontend-builder
+# Production Dockerfile for Aether AI
+# Build:  docker build -t aether-ai .
+# Run:    docker run -p 3000:3000 -p 8000:8000 --env-file backend/.env aether-ai
 
-# Set working directory
+FROM python:3.11-slim
+
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
-RUN npm ci --only=production
-
-# Copy frontend source
-COPY frontend/ .
-
-# Build frontend
-RUN npm run build
-
-# Python backend stage
-FROM python:3.11-slim AS backend
-
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies
+# Install system dependencies including Node.js 18
 RUN apt-get update && apt-get install -y \
-    gcc \
+    curl gcc gnupg ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (cached layer)
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy backend source
-COPY backend/ .
+# Install Node.js dependencies (cached layer)
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copy built frontend
-COPY --from=frontend-builder /app/dist ./static
+# Copy source and build frontend
+COPY . .
+RUN npm run build
+
+# Copy backend source (overwrite any stale copies)
+COPY backend/ ./backend/
 
 # Create non-root user
-RUN useradd --create-home --shell /bin/bash aether
-RUN chown -R aether:aether /app
+RUN useradd --create-home --shell /bin/bash aether && \
+    chown -R aether:aether /app
 USER aether
 
-# Expose port
-EXPOSE 8000
+EXPOSE 3000 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
-
-# Start command
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+CMD ["/app/start.sh"]

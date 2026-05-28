@@ -1,18 +1,35 @@
 version: '3.8'
 
 services:
-  aether-ai:
-    build: .
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - AETHER_API_BASE=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///./aether.db
+      - DATABASE_URL=sqlite:///./data/aether.db
+      - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=production
       - DEBUG=false
-      - ALLOWED_ORIGINS=["http://localhost:8000"]
+      - ALLOWED_ORIGINS=["http://localhost:3000","http://frontend:3000"]
     volumes:
-      - ./data:/app/data
-      - ./backend/credentials.json:/app/credentials.json:ro
+      - aether_data:/app/data
+    env_file:
+      - backend/.env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -31,4 +48,5 @@ services:
     command: redis-server --appendonly yes
 
 volumes:
+  aether_data:
   redis_data:

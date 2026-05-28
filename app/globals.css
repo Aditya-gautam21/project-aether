@@ -4,7 +4,7 @@
 
 @layer base {
     :root {
-        --background: 45 60% 95%; /* Cream / light yellow */
+        --background: 45 60% 95%;
         --foreground: 0 0% 9%;
 
         --card: 0 0% 100%;
@@ -13,7 +13,7 @@
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 9%;
 
-        --primary: 45 93% 60%; /* Warm yellow */
+        --primary: 45 93% 60%;
         --primary-foreground: 0 0% 9%;
 
         --secondary: 0 0% 96%;
@@ -67,12 +67,20 @@
     body {
         @apply bg-background text-foreground antialiased;
         min-height: 100dvh;
-        min-height: 100vh; /* fallback for older browsers */
+        min-height: 100vh;
     }
 }
 
+@keyframes pageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 @layer utilities {
-    /* Explicit thin scrollbars inside dense layouts (overrides * defaults slightly) */
+    .page-enter {
+        animation: pageIn 0.3s ease-out;
+    }
+
     .custom-scrollbar {
         scrollbar-width: thin;
         scrollbar-color: rgb(0 0 0 / 0.14) transparent;

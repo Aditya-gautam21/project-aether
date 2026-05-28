@@ -4,16 +4,41 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from sqlalchemy.orm import Session
-from models import Task, CalendarEvent, User, Habit, FinanceBudget, SocialConnection
-from database import get_db
 import re
 
 logger = logging.getLogger(__name__)
+
+# Lazy imports for optional dependencies
+_google_imports = None
+_sqlalchemy_imports = None
+
+
+def _get_google_imports():
+    global _google_imports
+    if _google_imports is None:
+        try:
+            from googleapiclient.discovery import build as _build
+            from google_auth_oauthlib.flow import InstalledAppFlow as _InstalledAppFlow
+            from google.auth.transport.requests import Request as _Request
+            from google.oauth2.credentials import Credentials as _Credentials
+            _google_imports = (_build, _InstalledAppFlow, _Request, _Credentials)
+        except ImportError:
+            _google_imports = False
+    return _google_imports
+
+
+def _get_sqlalchemy_imports():
+    global _sqlalchemy_imports
+    if _sqlalchemy_imports is None:
+        try:
+            from sqlalchemy.orm import Session as _Session
+            from models import Task as _Task, CalendarEvent as _CalendarEvent, User as _User
+            from models import Habit as _Habit, FinanceBudget as _FinanceBudget, SocialConnection as _SocialConnection
+            from database import get_db as _get_db
+            _sqlalchemy_imports = (_Session, _Task, _CalendarEvent, _User, _Habit, _FinanceBudget, _SocialConnection, _get_db)
+        except ImportError:
+            _sqlalchemy_imports = False
+    return _sqlalchemy_imports
 
 SCOPES = [
     'https://www.googleapis.com/auth/calendar',
@@ -27,28 +52,34 @@ class CalendarService:
     
     def _initialize_service(self):
         """Initialize Google Calendar service"""
+        imports = _get_google_imports()
+        if imports is False:
+            logger.warning("Google Calendar packages not installed")
+            return
+        _build, _InstalledAppFlow, _Request, _Credentials = imports
+
         try:
             creds = None
             if os.path.exists('token.json'):
-                creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-            
+                creds = _Credentials.from_authorized_user_file('token.json', SCOPES)
+
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
+                    creds.refresh(_Request())
                 else:
                     if os.path.exists('credentials.json'):
-                        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                        flow = _InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
                         creds = flow.run_local_server(port=0)
                     else:
                         logger.warning("Google Calendar credentials not found")
                         return
-                
+
                 with open('token.json', 'w') as token:
                     token.write(creds.to_json())
-            
-            self.service = build('calendar', 'v3', credentials=creds)
+
+            self.service = _build('calendar', 'v3', credentials=creds)
             logger.info("Google Calendar service initialized successfully")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize Google Calendar service: {e}")
     
@@ -285,9 +316,13 @@ class EnhancedCalendarTools:
     
     def _save_event_to_db(self, event: Dict, user_id: str):
         """Save event to database"""
+        imports = _get_sqlalchemy_imports()
+        if imports is False:
+            return
+        _, _, CalendarEvent, _, _, _, _, get_db = imports
         try:
             db = next(get_db())
-            
+
             calendar_event = CalendarEvent(
                 google_event_id=event['id'],
                 user_id=user_id,
@@ -298,10 +333,10 @@ class EnhancedCalendarTools:
                 attendees=json.dumps([att.get('email') for att in event.get('attendees', [])]),
                 location=event.get('location', '')
             )
-            
+
             db.add(calendar_event)
             db.commit()
-            
+
         except Exception as e:
             logger.error(f"Error saving event to database: {e}")
     
@@ -448,26 +483,31 @@ class EnhancedTaskTools:
                 }
             
             # Save to database if user_id provided
+            task_id = None
             if user_id:
-                db = next(get_db())
-                task = Task(
-                    user_id=user_id,
-                    title=task_name,
-                    description=description,
-                    priority=priority,
-                    due_date=due_date
-                )
-                db.add(task)
-                db.commit()
-                task_id = task.id
-            else:
+                imports = _get_sqlalchemy_imports()
+                if imports is not False:
+                    _, Task, _, _, _, _, _, get_db = imports
+                    db = next(get_db())
+                    task = Task(
+                        user_id=user_id,
+                        title=task_name,
+                        description=description,
+                        priority=priority,
+                        due_date=due_date
+                    )
+                    db.add(task)
+                    db.commit()
+                    task_id = task.id
+
+            if task_id is None:
                 # Fallback to JSON file
                 tasks_file = 'tasks.json'
                 tasks = []
                 if os.path.exists(tasks_file):
                     with open(tasks_file, 'r') as f:
                         tasks = json.load(f)
-                
+
                 task_id = len(tasks) + 1
                 new_task = {
                     'id': task_id,
@@ -479,7 +519,7 @@ class EnhancedTaskTools:
                     'created_at': datetime.now().isoformat()
                 }
                 tasks.append(new_task)
-                
+
                 with open(tasks_file, 'w') as f:
                     json.dump(tasks, f, indent=2)
             
@@ -509,23 +549,27 @@ class EnhancedTaskTools:
         """Get tasks with enhanced filtering"""
         try:
             tasks = []
-            
+
             if user_id:
                 # Get from database
-                db = next(get_db())
-                db_tasks = db.query(Task).filter(Task.user_id == user_id).all()
-                tasks = [
-                    {
-                        'id': task.id,
-                        'title': task.title,
-                        'priority': task.priority,
-                        'status': task.status,
-                        'due_date': task.due_date.isoformat() if task.due_date else None,
-                        'created_at': task.created_at.isoformat()
-                    }
-                    for task in db_tasks
-                ]
-            else:
+                imports = _get_sqlalchemy_imports()
+                if imports is not False:
+                    _, Task, _, _, _, _, _, get_db = imports
+                    db = next(get_db())
+                    db_tasks = db.query(Task).filter(Task.user_id == user_id).all()
+                    tasks = [
+                        {
+                            'id': task.id,
+                            'title': task.title,
+                            'priority': task.priority,
+                            'status': task.status,
+                            'due_date': task.due_date.isoformat() if task.due_date else None,
+                            'created_at': task.created_at.isoformat()
+                        }
+                        for task in db_tasks
+                    ]
+
+            if not tasks:
                 # Fallback to JSON file
                 tasks_file = 'tasks.json'
                 if os.path.exists(tasks_file):
@@ -621,7 +665,11 @@ def get_tasks(query: str = "") -> str:
 
 class EnhancedHabitTools:
     def log_habit(self, habit_name: str, user_id: str) -> dict:
+        imports = _get_sqlalchemy_imports()
+        if imports is False:
+            return {'success': False, 'message': '❌ Database not available. Install sqlalchemy and configure DATABASE_URL.'}
         try:
+            _, _, _, _, Habit, _, _, get_db = imports
             db = next(get_db())
             habit = db.query(Habit).filter(Habit.user_id == user_id, Habit.name.ilike(f"%{habit_name}%")).first()
             if not habit:
@@ -630,7 +678,7 @@ class EnhancedHabitTools:
             else:
                 habit.streak_count += 1
             db.commit()
-            
+
             return {
                 'success': True,
                 'message': f'✅ Habit {habit_name} logged! Streak is now {habit.streak_count}',
@@ -644,7 +692,11 @@ habit_tools = EnhancedHabitTools()
 
 class EnhancedFinanceTools:
     def log_expense(self, category: str, amount: int, user_id: str) -> dict:
+        imports = _get_sqlalchemy_imports()
+        if imports is False:
+            return {'success': False, 'message': '❌ Database not available. Install sqlalchemy and configure DATABASE_URL.'}
         try:
+            _, _, _, _, _, FinanceBudget, _, get_db = imports
             db = next(get_db())
             budget = db.query(FinanceBudget).filter(FinanceBudget.user_id == user_id, FinanceBudget.category.ilike(f"%{category}%")).first()
             if not budget:
@@ -653,7 +705,7 @@ class EnhancedFinanceTools:
             else:
                 budget.amount_spent += amount
             db.commit()
-            
+
             return {
                 'success': True,
                 'message': f'✅ ₹{amount} logged under {budget.category}.',
@@ -664,7 +716,11 @@ class EnhancedFinanceTools:
 
 class EnhancedSocialTools:
     def log_interaction(self, person: str, action: str, user_id: str) -> dict:
+        imports = _get_sqlalchemy_imports()
+        if imports is False:
+            return {'success': False, 'message': '❌ Database not available. Install sqlalchemy and configure DATABASE_URL.'}
         try:
+            _, _, _, _, _, _, SocialConnection, get_db = imports
             db = next(get_db())
             connection = db.query(SocialConnection).filter(SocialConnection.user_id == user_id, SocialConnection.person_name.ilike(f"%{person}%")).first()
             if not connection:
@@ -674,7 +730,7 @@ class EnhancedSocialTools:
                 connection.status = "Just talked"
                 connection.last_contacted=datetime.now()
             db.commit()
-            
+
             return {
                 'success': True,
                 'message': f'✅ Logged interaction with {person}.',

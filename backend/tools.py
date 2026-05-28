@@ -1,29 +1,54 @@
 import os
 import datetime
 import json
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from langchain.tools import tool
+
+def _noop_tool(func):
+    """No-op decorator when langchain is unavailable."""
+    return func
+
+try:
+    from langchain.tools import tool
+except ImportError:
+    tool = _noop_tool
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+# Lazy Google Calendar imports — only needed when actually calling the tools
+_google_imports = None
+
+def _get_google_imports():
+    global _google_imports
+    if _google_imports is None:
+        try:
+            from googleapiclient.discovery import build as _build
+            from google_auth_oauthlib.flow import InstalledAppFlow as _InstalledAppFlow
+            from google.auth.transport.requests import Request as _Request
+            from google.oauth2.credentials import Credentials as _Credentials
+            _google_imports = (_build, _InstalledAppFlow, _Request, _Credentials)
+        except ImportError:
+            _google_imports = False
+    return _google_imports
+
 def get_calender_service():
+    imports = _get_google_imports()
+    if imports is False:
+        raise ImportError("Google Calendar packages not installed. Run: pip install google-api-python-client google-auth-oauthlib")
+    _build, _InstalledAppFlow, _Request, _Credentials = imports
+
     creds = None
     if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        creds = _Credentials.from_authorized_user_file('token.json', SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            creds.refresh(_Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            flow = _InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
 
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
-    return build('calendar', 'v3', credentials=creds)
+    return _build('calendar', 'v3', credentials=creds)
 
 @tool
 def book_appointment(input_str: str) -> str:

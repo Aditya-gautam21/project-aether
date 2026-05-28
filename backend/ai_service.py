@@ -1,5 +1,4 @@
 """AI Service with Amazon Q integration and OpenAI fallback"""
-import boto3
 import openai
 from typing import Optional, Dict, Any, List
 from config import settings
@@ -8,6 +7,20 @@ import json
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# Lazy boto3 import — only needed when AWS credentials are configured
+_boto3 = None
+
+
+def _get_boto3():
+    global _boto3
+    if _boto3 is None:
+        try:
+            import boto3 as _boto3_mod
+            _boto3 = _boto3_mod
+        except ImportError:
+            _boto3 = False
+    return _boto3
 
 class AIService:
     def __init__(self):
@@ -19,16 +32,20 @@ class AIService:
         """Initialize AI service clients"""
         # Setup Amazon Q
         if settings.amazon_q_application_id and settings.aws_access_key_id:
-            try:
-                self.amazon_q_client = boto3.client(
-                    'qbusiness',
-                    aws_access_key_id=settings.aws_access_key_id,
-                    aws_secret_access_key=settings.aws_secret_access_key,
-                    region_name=settings.aws_region
-                )
-                logger.info("Amazon Q client initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize Amazon Q: {e}")
+            boto3_mod = _get_boto3()
+            if boto3_mod is not False:
+                try:
+                    self.amazon_q_client = boto3_mod.client(
+                        'qbusiness',
+                        aws_access_key_id=settings.aws_access_key_id,
+                        aws_secret_access_key=settings.aws_secret_access_key,
+                        region_name=settings.aws_region
+                    )
+                    logger.info("Amazon Q client initialized successfully")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Amazon Q: {e}")
+            else:
+                logger.warning("Amazon Q configured but boto3 not installed")
         
         # Setup OpenAI as fallback
         if settings.openai_api_key:

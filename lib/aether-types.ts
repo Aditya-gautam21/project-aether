@@ -11,6 +11,8 @@ export interface AetherHabit {
     id: string;
     name: string;
     streak: number;
+    logs: string[]; // ISO date strings — each entry = habit completed on that day
+    longestStreak: number;
 }
 
 export interface AetherFinance {

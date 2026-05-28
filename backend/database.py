@@ -3,7 +3,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 from config import settings
-import redis
 from typing import Generator
 
 # SQLAlchemy setup
@@ -14,12 +13,14 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Redis setup
+# Redis setup (optional)
+redis_client = None
 try:
-    redis_client = redis.from_url(settings.redis_url, decode_responses=True)
-    redis_client.ping()  # Test connection
+    import redis as _redis
+    redis_client = _redis.from_url(settings.redis_url, decode_responses=True)
+    redis_client.ping()
 except Exception as e:
-    print(f"Redis connection failed: {e}")
+    print(f"Redis not available: {e}")
     redis_client = None
 
 def get_db() -> Generator[Session, None, None]:

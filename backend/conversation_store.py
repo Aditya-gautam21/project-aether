@@ -37,6 +37,7 @@ def _write_root(root: Dict[str, Any]) -> None:
 
 
 def list_conversation_meta() -> List[Dict[str, Any]]:
+    prune_empty_conversations()
     root = _read_root()
     items = []
     for cid, c in root["conversations"].items():
@@ -63,6 +64,16 @@ def save_conversation(conv: Dict[str, Any]) -> Dict[str, Any]:
     conv = copy.deepcopy(conv)
     if "messages" not in conv or not isinstance(conv["messages"], list):
         conv["messages"] = []
+    # Don't persist empty conversations — delete if they already exist
+    has_content = any(
+        m.get("role") == "user" and str(m.get("content", "")).strip()
+        for m in conv["messages"]
+    )
+    if not has_content:
+        if cid in root["conversations"]:
+            del root["conversations"][cid]
+            _write_root(root)
+        return conv
     if "title" not in conv:
         conv["title"] = "Chat"
     conv["updatedAt"] = datetime.now(timezone.utc).isoformat()
@@ -92,3 +103,18 @@ def delete_conversation(cid: str) -> bool:
     del root["conversations"][cid]
     _write_root(root)
     return True
+
+
+def prune_empty_conversations() -> int:
+    """Remove conversations with zero messages. Returns count removed."""
+    root = _read_root()
+    to_remove = [
+        cid
+        for cid, c in root["conversations"].items()
+        if len(c.get("messages", [])) == 0
+    ]
+    for cid in to_remove:
+        del root["conversations"][cid]
+    if to_remove:
+        _write_root(root)
+    return len(to_remove)

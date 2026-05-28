@@ -189,12 +189,12 @@ export function MetricsWidget() {
 
 export function ChatbotWidget({ chatId }: { chatId: string }) {
     return (
-        <div className="bg-zinc-900 relative rounded-[2.5rem] shadow-xl w-full flex flex-col overflow-hidden text-white border-4 border-zinc-900 h-[480px] mt-4 mb-4">
-            <div className="p-4 pb-2 flex justify-between items-center bg-zinc-900 z-10 shrink-0">
-                <h3 className="text-xl font-medium w-full text-center">AI Assistant</h3>
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0 absolute right-6"></div>
+        <div className="bg-white/70 backdrop-blur relative rounded-2xl shadow-sm w-full flex flex-col overflow-hidden border border-white/80 h-[480px]">
+            <div className="p-4 pb-2 flex justify-between items-center z-10 shrink-0">
+                <h3 className="text-sm font-semibold text-zinc-800">AI Assistant</h3>
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></div>
             </div>
-            <div className="flex-1 bg-zinc-50 rounded-[2rem] overflow-hidden m-2 mt-0 flex flex-col">
+            <div className="flex-1 overflow-hidden flex flex-col">
                 <ChatInterface id={chatId} />
             </div>
         </div>

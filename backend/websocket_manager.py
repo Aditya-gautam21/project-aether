@@ -120,13 +120,19 @@ class ChatWebSocketHandler:
             content = message_data.get("content", "")
             if not content.strip():
                 return
-            
+
             # Send typing indicator
             await self.manager.send_typing_indicator(session_id, True)
-            
-            # Import AI service
-            from ai_service import ai_service
-            from enhanced_tools import calendar_tools, task_tools, habit_tools, finance_tools, social_tools
+
+            # Lazy import optional modules
+            try:
+                from ai_service import ai_service
+            except ImportError:
+                ai_service = None
+            try:
+                from enhanced_tools import calendar_tools, task_tools, habit_tools, finance_tools, social_tools
+            except ImportError:
+                calendar_tools = task_tools = habit_tools = finance_tools = social_tools = None
             
             # Get conversation context (simplified for now)
             context = message_data.get("context", [])
@@ -134,11 +140,11 @@ class ChatWebSocketHandler:
             # Check if this is a tool-related request
             content_lower = content.lower()
             
-            if any(keyword in content_lower for keyword in ['book', 'schedule', 'meeting', 'appointment']):
+            if calendar_tools and any(keyword in content_lower for keyword in ['book', 'schedule', 'meeting', 'appointment']):
                 # Handle calendar booking
                 result = calendar_tools.book_meeting(content, user_id)
                 response_content = result['message']
-                
+
                 # Send additional data if successful
                 if result['success'] and 'event' in result:
                     await self.manager.send_message(session_id, {
@@ -146,12 +152,12 @@ class ChatWebSocketHandler:
                         "event": result['event'],
                         "timestamp": datetime.now().isoformat()
                     })
-            
-            elif any(keyword in content_lower for keyword in ['create', 'add']) and 'task' in content_lower:
+
+            elif task_tools and any(keyword in content_lower for keyword in ['create', 'add']) and 'task' in content_lower:
                 # Handle task creation
                 result = task_tools.create_task(content, user_id)
                 response_content = result['message']
-                
+
                 # Send additional data if successful
                 if result['success'] and 'task' in result:
                     await self.manager.send_message(session_id, {
@@ -159,17 +165,16 @@ class ChatWebSocketHandler:
                         "task": result['task'],
                         "timestamp": datetime.now().isoformat()
                     })
-            
-            elif any(keyword in content_lower for keyword in ['log', 'habit', 'gym', 'journal']):
+
+            elif habit_tools and any(keyword in content_lower for keyword in ['log', 'habit', 'gym', 'journal']):
                 result = habit_tools.log_habit(content, user_id)
                 response_content = result['message']
-                
+
                 if result['success']:
-                    # Emit to update dashboard!
                     await self.manager.broadcast_dashboard_sync(user_id, {
                         "habits": [result['habit']]
                     })
-            elif any(keyword in content_lower for keyword in ['spent', 'cost', 'bought', 'expense']):
+            elif finance_tools and any(keyword in content_lower for keyword in ['spent', 'cost', 'bought', 'expense']):
                 # Simple mock extraction for now
                 amount = int(''.join(filter(str.isdigit, content_lower)) or 0)
                 result = finance_tools.log_expense("Food/General", amount, user_id)
@@ -177,7 +182,7 @@ class ChatWebSocketHandler:
                 if result['success']:
                     await self.manager.broadcast_dashboard_sync(user_id, {"finances": [result['finance']]})
 
-            elif any(keyword in content_lower for keyword in ['talked to', 'met', 'messaged', 'called', 'reach out']):
+            elif social_tools and any(keyword in content_lower for keyword in ['talked to', 'met', 'messaged', 'called', 'reach out']):
                 # Simple extraction
                 parts = content_lower.split(" ")
                 person = parts[-1] if len(parts) > 1 else "Friend"
@@ -185,36 +190,36 @@ class ChatWebSocketHandler:
                 response_content = result['message']
                 if result['success']:
                     await self.manager.broadcast_dashboard_sync(user_id, {"social": [result['social']]})
-                    
-            elif any(keyword in content_lower for keyword in ['show', 'list', 'get']) and ('event' in content_lower or 'calendar' in content_lower):
+
+            elif calendar_tools and any(keyword in content_lower for keyword in ['show', 'list', 'get']) and ('event' in content_lower or 'calendar' in content_lower):
                 # Handle event listing
                 result = calendar_tools.get_events(content, user_id)
                 response_content = result['message']
-                
+
                 if result['success'] and 'events' in result:
                     await self.manager.send_message(session_id, {
                         "type": "events_list",
                         "events": result['events'],
                         "timestamp": datetime.now().isoformat()
                     })
-            
-            elif any(keyword in content_lower for keyword in ['show', 'list', 'get']) and 'task' in content_lower:
+
+            elif task_tools and any(keyword in content_lower for keyword in ['show', 'list', 'get']) and 'task' in content_lower:
                 # Handle task listing
                 result = task_tools.get_tasks(content, user_id)
                 response_content = result['message']
-                
+
                 if result['success'] and 'tasks' in result:
                     await self.manager.send_message(session_id, {
                         "type": "tasks_list",
                         "tasks": result['tasks'],
                         "timestamp": datetime.now().isoformat()
                     })
-            
-            else:
+
+            elif ai_service:
                 # Handle general AI conversation
                 ai_response = await ai_service.generate_response(content, context, user_id)
                 response_content = ai_response['content']
-                
+
                 # Send AI metadata
                 await self.manager.send_message(session_id, {
                     "type": "ai_metadata",
@@ -222,6 +227,12 @@ class ChatWebSocketHandler:
                     "confidence": ai_response['confidence'],
                     "timestamp": datetime.now().isoformat()
                 })
+            else:
+                # No AI service available — use a simple echo
+                response_content = (
+                    "I received your message, but no AI backend is configured. "
+                    "Set OPENAI_API_KEY or GOOGLE_API_KEY in backend/.env to enable AI responses."
+                )
             
             # Stop typing indicator
             await self.manager.send_typing_indicator(session_id, False)

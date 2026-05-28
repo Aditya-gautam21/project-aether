@@ -1,15 +1,17 @@
 """
-Aether FastAPI backend: Life OS state, AI chat (streaming), conversation persistence.
+Aether FastAPI backend: Life OS state, AI chat (streaming), conversation persistence,
+and WebSocket real-time communication.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -21,21 +23,47 @@ from conversation_store import (
     delete_conversation,
     get_conversation,
     list_conversation_meta,
+    prune_empty_conversations,
     save_conversation,
 )
+
+try:
+    from websocket_manager import manager, websocket_handler
+    _WS_AVAILABLE = True
+except ImportError:
+    _WS_AVAILABLE = False
+    manager = None
+    websocket_handler = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Aether AI", version="3.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+
+@app.on_event("startup")
+async def on_startup():
+    removed = prune_empty_conversations()
+    if removed:
+        logger.info("Pruned %d empty conversation(s) on startup", removed)
+
+# Parse ALLOWED_ORIGINS from env or use safe defaults
+_raw_origins = os.getenv("ALLOWED_ORIGINS")
+if _raw_origins:
+    try:
+        _allowed_origins = json.loads(_raw_origins) if _raw_origins.startswith("[") else [o.strip() for o in _raw_origins.split(",")]
+    except Exception:
+        _allowed_origins = ["http://localhost:3000"]
+else:
+    _allowed_origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,6 +93,21 @@ class ConversationCreate(BaseModel):
     title: str = "New chat"
 
 
+# --- WebSocket (real-time chat + dashboard sync) ---
+
+
+@app.websocket("/ws/{user_id}/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str):
+    if not _WS_AVAILABLE:
+        await websocket.close(code=1011, reason="WebSocket manager not available")
+        return
+    await manager.connect(websocket, user_id, session_id)
+    try:
+        await websocket_handler.handle_message(websocket, session_id, user_id)
+    except WebSocketDisconnect:
+        manager.disconnect(session_id)
+
+
 @app.get("/api/health")
 async def health_check():
     google_on = bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
@@ -73,6 +116,7 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "openai_configured": bool(openai.api_key),
         "google_configured": google_on,
+        "websocket_available": _WS_AVAILABLE,
     }
 
 
