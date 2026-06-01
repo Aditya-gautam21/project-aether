@@ -1,12 +1,16 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/api/aether/dashboard/route": "app/api/aether/dashboard/route.js",
   "/api/chat/models/route": "app/api/chat/models/route.js",
-  "/api/conversations/route": "app/api/conversations/route.js",
   "/api/chat/route": "app/api/chat/route.js",
-  "/(shell)/page": "app/(shell)/page.js",
+  "/api/conversations/[id]/route": "app/api/conversations/[id]/route.js",
+  "/api/health/route": "app/api/health/route.js",
+  "/api/conversations/route": "app/api/conversations/route.js",
   "/(shell)/chat/page": "app/(shell)/chat/page.js",
   "/(shell)/finance/page": "app/(shell)/finance/page.js",
   "/(shell)/habits/page": "app/(shell)/habits/page.js",
   "/(shell)/journal/page": "app/(shell)/journal/page.js",
-  "/(shell)/settings/page": "app/(shell)/settings/page.js"
+  "/(shell)/settings/page": "app/(shell)/settings/page.js",
+  "/(shell)/page": "app/(shell)/page.js",
+  "/(shell)/life-os/page": "app/(shell)/life-os/page.js"
 }
